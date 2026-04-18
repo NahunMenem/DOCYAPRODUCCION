@@ -1,0 +1,70 @@
+{
+  "project_info": {
+    "project_number": "117956759164",
+    "project_id": "docya-paciente",
+    "storage_bucket": "docya-paciente.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:117956759164:android:c2212224eff90c95b583f9",
+        "android_client_info": {
+          "package_name": "com.docya.paciente"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "117956759164-4eeokd1a5evfb6562j2q9j70bsls4ml0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.docya.paciente",
+            "certificate_hash": "d94212d88c42dd7e7ab6dde52ea1fa8979e75ed4"
+          }
+        },
+        {
+          "client_id": "117956759164-h71sh3ogmknrrabph05b18glv2a52uet.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.docya.paciente",
+            "certificate_hash": "c929f96ccdc451a10b3b8da704fb11aea8c3977c"
+          }
+        },
+        {
+          "client_id": "117956759164-orbkgtcceg8e0t50lv65i1d2sd8ptnea.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.docya.paciente",
+            "certificate_hash": "a365892211deb63e59d16257ed46828c6617d4b1"
+          }
+        },
+        {
+          "client_id": "117956759164-9q555tbkl8ulrmcapgj4emoqn827ltti.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBN5H4TK-GT-undXi4yumEafR7vVt1QzqE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "117956759164-9q555tbkl8ulrmcapgj4emoqn827ltti.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "117956759164-mqep8e78d7fraoki2uqvcf4ja8m7ct5t.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.docya.paciente"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
