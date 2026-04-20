@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
@@ -6,7 +7,7 @@ class AuthService {
   // URL del backend en Railway
   static const String BASE_URL =
       'https://docya-railway-production.up.railway.app';
-  static const Duration _requestTimeout = Duration(seconds: 12);
+  static const Duration _requestTimeout = Duration(seconds: 20);
 
   // 🔑 Client ID de Google (Android)
   static const String GOOGLE_SERVER_CLIENT_ID =
@@ -166,6 +167,13 @@ class AuthService {
           "detail": data["detail"] ?? "No se pudo iniciar sesión con Google."
         };
       }
+    } on TimeoutException {
+      print("❌ Error loginWithGoogle: timeout");
+      return {
+        "ok": false,
+        "detail":
+            "El servidor tardó demasiado en responder. Intentá nuevamente en unos segundos."
+      };
     } catch (e) {
       print("❌ Error loginWithGoogle: $e");
       return {"ok": false, "detail": "Error de conexión"};
