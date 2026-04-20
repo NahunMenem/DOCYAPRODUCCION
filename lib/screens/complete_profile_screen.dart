@@ -27,6 +27,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   final _numeroDocumentoCtrl = TextEditingController();
   final _telefonoCtrl = TextEditingController();
   final _direccionCtrl = TextEditingController();
+  final _telefonoFocus = FocusNode();
+  final _direccionFocus = FocusNode();
   final _auth = AuthService();
 
   String _tipoDocumento = 'dni';
@@ -50,6 +52,8 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     _numeroDocumentoCtrl.dispose();
     _telefonoCtrl.dispose();
     _direccionCtrl.dispose();
+    _telefonoFocus.dispose();
+    _direccionFocus.dispose();
     super.dispose();
   }
 
@@ -197,9 +201,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   }
 
   InputDecoration _inputDecoration(String label,
-      {Widget? prefix, Widget? suffix}) {
+      {Widget? prefix, Widget? suffix, String? hintText}) {
     return InputDecoration(
       labelText: label,
+      hintText: hintText,
       prefixIcon: prefix,
       suffixIcon: suffix,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
@@ -259,9 +264,13 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                   const SizedBox(height: 16),
                   TextFormField(
                     controller: _telefonoCtrl,
+                    focusNode: _telefonoFocus,
                     keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                    onFieldSubmitted: (_) => _direccionFocus.requestFocus(),
                     decoration: _inputDecoration(
                       'Teléfono internacional',
+                      hintText: 'Solo tu número',
                       prefix: InkWell(
                         onTap: () {
                           showCountryPicker(
@@ -283,12 +292,24 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         ? 'Ingresá tu teléfono'
                         : null,
                   ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Escribí tu número en este campo. El prefijo se cambia tocando la bandera.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white70,
+                        ),
+                  ),
                   const SizedBox(height: 16),
                   GooglePlaceAutoCompleteTextField(
                     textEditingController: _direccionCtrl,
+                    focusNode: _direccionFocus,
                     googleAPIKey: kProfileGoogleApiKey,
                     debounceTime: 500,
+                    countries: const ['ar'],
+                    language: 'es',
                     isLatLngRequired: false,
+                    keyboardType: TextInputType.streetAddress,
+                    textInputAction: TextInputAction.done,
                     itemClick: (prediction) {
                       _direccionCtrl.text = prediction.description ?? '';
                       _direccionCtrl.selection = TextSelection.fromPosition(
@@ -308,7 +329,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                       border: Border.all(color: Colors.white24),
                       borderRadius: BorderRadius.circular(16),
                     ),
-                    inputDecoration: _inputDecoration('Dirección'),
+                    inputDecoration: _inputDecoration(
+                      'Dirección',
+                      hintText: 'Ej: Av. Santa Fe 1234, CABA',
+                    ),
                   ),
                   const SizedBox(height: 16),
                   InkWell(
