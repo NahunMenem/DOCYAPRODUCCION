@@ -36,7 +36,6 @@ class _TeleconsultaRoomScreenState extends State<TeleconsultaRoomScreen> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setOnPermissionRequest((request) => request.grant())
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (_) {
