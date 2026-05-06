@@ -72,7 +72,10 @@
 
     <!-- 📍 Permisos -->
     <key>NSCameraUsageDescription</key>
-    <string>DocYa necesita acceder a la cámara para tomar una foto de tu DNI.</string>
+    <string>DocYa necesita la cámara para teleconsultas médicas por videollamada y para tomar fotos de tu DNI.</string>
+
+    <key>NSMicrophoneUsageDescription</key>
+    <string>DocYa necesita el micrófono para teleconsultas médicas por videollamada con tu médico.</string>
 
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
     <string>DocYa necesita tu ubicación en todo momento para asignarte consultas en tiempo real.</string>

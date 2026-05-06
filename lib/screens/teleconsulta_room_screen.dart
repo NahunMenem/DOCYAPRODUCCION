@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -35,14 +36,22 @@ class _TeleconsultaRoomScreenState extends State<TeleconsultaRoomScreen> {
     super.initState();
     _controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setOnPermissionRequest((request) => request.grant())
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (_) {
             if (mounted) setState(() => _loading = false);
           },
         ),
-      )
-      ..loadRequest(Uri.parse(widget.roomUrl));
+      );
+    _requestPermissionsAndLoad();
+  }
+
+  Future<void> _requestPermissionsAndLoad() async {
+    await [Permission.camera, Permission.microphone].request();
+    if (mounted) {
+      _controller.loadRequest(Uri.parse(widget.roomUrl));
+    }
   }
 
   @override
