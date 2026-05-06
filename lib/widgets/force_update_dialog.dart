@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ForceUpdateDialog extends StatelessWidget {
+  static const String _iosAppStoreUrl =
+      'https://apps.apple.com/ar/app/docya/id6753604975';
+
   final String mensaje;
   final String urlAndroid;
   final String urlIos;
@@ -12,6 +15,21 @@ class ForceUpdateDialog extends StatelessWidget {
     required this.urlAndroid,
     required this.urlIos,
   });
+
+  String _resolveStoreUrl(TargetPlatform platform) {
+    if (platform == TargetPlatform.android) {
+      return urlAndroid;
+    }
+
+    final normalizedIosUrl = urlIos.trim();
+    if (normalizedIosUrl.isEmpty ||
+        normalizedIosUrl.contains('idXXXXXXXXX') ||
+        !normalizedIosUrl.contains('apps.apple.com')) {
+      return _iosAppStoreUrl;
+    }
+
+    return normalizedIosUrl;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -110,10 +128,7 @@ class ForceUpdateDialog extends StatelessWidget {
                 ),
                 child: ElevatedButton(
                   onPressed: () {
-                    final url =
-                        Theme.of(context).platform == TargetPlatform.android
-                            ? urlAndroid
-                            : urlIos;
+                    final url = _resolveStoreUrl(Theme.of(context).platform);
                     launchUrl(Uri.parse(url),
                         mode: LaunchMode.externalApplication);
                   },

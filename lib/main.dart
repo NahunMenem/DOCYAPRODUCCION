@@ -51,6 +51,10 @@ const String kMedicationReminderChannelId = 'medication_reminders_v2';
 const String kMedicationReminderChannelName = 'Recordatorios de medicacion';
 const String kMedicationReminderAndroidSound = 'medicacion_alerta';
 const String kMedicationReminderIosSound = 'medicacion_alerta.caf';
+const String kChatMessageChannelId = 'docya_mensajes_v2';
+const String kChatMessageChannelName = 'Mensajes DocYa';
+const String kChatMessageAndroidSound = 'alerta';
+const String kChatMessageIosSound = 'alerta.caf';
 
 // ==========================================================
 // 🔥 BACKGROUND HANDLER (OBLIGATORIO iOS)
@@ -84,6 +88,16 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   );
   await androidPlugin?.createNotificationChannel(
     const AndroidNotificationChannel(
+      kChatMessageChannelId,
+      kChatMessageChannelName,
+      description: 'Avisos de mensajes del chat',
+      importance: Importance.max,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound(kChatMessageAndroidSound),
+    ),
+  );
+  await androidPlugin?.createNotificationChannel(
+    const AndroidNotificationChannel(
       kMedicationReminderChannelId,
       kMedicationReminderChannelName,
       description: 'Avisos programados del pastillero',
@@ -108,20 +122,19 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       message.data["mensaje"] ?? "",
       const NotificationDetails(
         android: AndroidNotificationDetails(
-          'default_channel_id',
-          'Notificaciones DocYa',
+          kChatMessageChannelId,
+          kChatMessageChannelName,
           importance: Importance.max,
           priority: Priority.high,
           playSound: true,
-          sound: RawResourceAndroidNotificationSound(
-            kMedicationReminderAndroidSound,
-          ),
+          sound: RawResourceAndroidNotificationSound(kChatMessageAndroidSound),
           icon: '@mipmap/ic_launcher',
         ),
         iOS: DarwinNotificationDetails(
           presentAlert: true,
           presentBadge: true,
           presentSound: true,
+          sound: kChatMessageIosSound,
         ),
       ),
       payload: jsonEncode({
@@ -347,6 +360,7 @@ Future<void> main() async {
       flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
   await _androidPlugin?.deleteNotificationChannel('default_channel_id');
+  await _androidPlugin?.deleteNotificationChannel(kChatMessageChannelId);
   await _androidPlugin?.deleteNotificationChannel(kMedicationReminderChannelId);
   await _androidPlugin?.createNotificationChannel(
     const AndroidNotificationChannel(
@@ -357,6 +371,16 @@ Future<void> main() async {
       sound: RawResourceAndroidNotificationSound(
         kMedicationReminderAndroidSound,
       ),
+    ),
+  );
+  await _androidPlugin?.createNotificationChannel(
+    const AndroidNotificationChannel(
+      kChatMessageChannelId,
+      kChatMessageChannelName,
+      description: 'Avisos de mensajes del chat',
+      importance: Importance.max,
+      playSound: true,
+      sound: RawResourceAndroidNotificationSound(kChatMessageAndroidSound),
     ),
   );
   await _androidPlugin?.createNotificationChannel(
@@ -520,20 +544,20 @@ class _DocYaAppState extends State<DocYaApp> {
           msg.data["mensaje"] ?? "",
           const NotificationDetails(
             android: AndroidNotificationDetails(
-              'default_channel_id',
-              'Notificaciones DocYa',
+              kChatMessageChannelId,
+              kChatMessageChannelName,
               importance: Importance.max,
               priority: Priority.high,
               playSound: true,
-              sound: RawResourceAndroidNotificationSound(
-                kMedicationReminderAndroidSound,
-              ),
+              sound:
+                  RawResourceAndroidNotificationSound(kChatMessageAndroidSound),
               icon: '@mipmap/ic_launcher',
             ),
             iOS: DarwinNotificationDetails(
               presentAlert: true,
               presentBadge: true,
               presentSound: true,
+              sound: kChatMessageIosSound,
             ),
           ),
           payload: jsonEncode({

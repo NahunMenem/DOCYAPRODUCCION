@@ -22,6 +22,7 @@ import '../services/medication_service.dart';
 import 'MedicoEnCaminoScreen.dart';
 import 'EnfermeroEnCaminoScreen.dart';
 import 'consulta_en_curso_screen.dart';
+import 'teleconsulta_form_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String? nombreUsuario;
@@ -1290,6 +1291,32 @@ class _HomeScreenState extends State<HomeScreen>
               const SizedBox(height: 24),
               Column(
                 children: [
+                  _serviceButton(
+                    context,
+                    icon: PhosphorIconsFill.videoCamera,
+                    label: "Teleconsulta",
+                    color: const Color(0xFF6366F1),
+                    subtitle: "Atencion medica por videollamada",
+                    onTap: () {
+                      if ((_userId ?? '').isEmpty) {
+                        _mostrarSnackBar(
+                          context,
+                          "No pudimos identificar tu sesion",
+                          exito: false,
+                        );
+                        return;
+                      }
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => TeleconsultaFormScreen(
+                            pacienteUuid: _userId!,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
                   _serviceButton(
                     context,
                     icon: PhosphorIconsFill.syringe,

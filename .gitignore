@@ -5,10 +5,3 @@
 .gradle/ 
 **/intermediates/** 
 **/generated/** 
-**/.DS_Store
-**/.kotlin/
-**/ephemeral/
-**/flutter_export_environment.sh
-**/Generated.xcconfig
-android/key.properties
-android/app/*.jks
