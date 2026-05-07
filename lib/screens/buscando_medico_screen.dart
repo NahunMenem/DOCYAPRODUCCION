@@ -44,7 +44,7 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
   Timer? _countdownTimer;
 
   String estadoConsulta = "pendiente";
-  int _remainingSearchSeconds = 60;
+  int _remainingSearchSeconds = 300;
 
   final String apiBase = "https://docya-railway-production.up.railway.app";
 
@@ -80,7 +80,7 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
       setState(() => _remainingSearchSeconds--);
     });
 
-    _timeoutTimer = Timer(const Duration(seconds: 60), () async {
+    _timeoutTimer = Timer(const Duration(minutes: 5), () async {
       _stopPolling();
 
       if (widget.consultaId != null) {
@@ -359,10 +359,21 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            "Tiempo restante: ${_remainingSearchSeconds}s",
+                            "Tiempo restante: ${(_remainingSearchSeconds ~/ 60).toString().padLeft(1, '0')}:${(_remainingSearchSeconds % 60).toString().padLeft(2, '0')}",
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.75),
                               fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Text(
+                            "Si ningún profesional acepta en este plazo, la solicitud se cancela y gestionamos la devolución automáticamente.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.72),
+                              fontSize: 12.5,
+                              height: 1.35,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
