@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class TeleconsultaRoomScreen extends StatefulWidget {
@@ -39,11 +40,28 @@ class _TeleconsultaRoomScreenState extends State<TeleconsultaRoomScreen> {
           },
         ),
       );
+    _configureAndroidPermissions();
     _requestPermissionsAndLoad();
   }
 
+  void _configureAndroidPermissions() {
+    final platformController = _controller.platform;
+    if (platformController is AndroidWebViewController) {
+      platformController.setMediaPlaybackRequiresUserGesture(false);
+      platformController.setOnPlatformPermissionRequest((request) {
+        request.grant();
+      });
+    }
+  }
+
   Future<void> _requestPermissionsAndLoad() async {
-    await [Permission.camera, Permission.microphone].request();
+    final statuses = await [Permission.camera, Permission.microphone].request();
+    final cameraGranted = statuses[Permission.camera]?.isGranted ?? false;
+    final micGranted = statuses[Permission.microphone]?.isGranted ?? false;
+    if (!cameraGranted || !micGranted) {
+      await openAppSettings();
+      return;
+    }
     if (mounted) {
       _controller.loadRequest(Uri.parse(widget.roomUrl));
     }
