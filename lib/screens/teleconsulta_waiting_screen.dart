@@ -24,7 +24,8 @@ class TeleconsultaWaitingScreen extends StatefulWidget {
   });
 
   @override
-  State<TeleconsultaWaitingScreen> createState() => _TeleconsultaWaitingScreenState();
+  State<TeleconsultaWaitingScreen> createState() =>
+      _TeleconsultaWaitingScreenState();
 }
 
 class _TeleconsultaWaitingScreenState extends State<TeleconsultaWaitingScreen> {
@@ -41,6 +42,12 @@ class _TeleconsultaWaitingScreenState extends State<TeleconsultaWaitingScreen> {
   Duration _remaining = Duration.zero;
   Map<String, dynamic>? _consulta;
   bool _cancelando = false;
+
+  DateTime get _expiresAt {
+    final raw = (_consulta?['expires_at'] ?? '').toString();
+    final parsed = DateTime.tryParse(raw)?.toLocal();
+    return parsed ?? widget.expiresAt;
+  }
 
   @override
   void initState() {
@@ -59,7 +66,7 @@ class _TeleconsultaWaitingScreenState extends State<TeleconsultaWaitingScreen> {
   }
 
   void _tick() {
-    final diff = widget.expiresAt.difference(DateTime.now());
+    final diff = _expiresAt.difference(DateTime.now());
     if (!mounted) return;
     setState(() => _remaining = diff.isNegative ? Duration.zero : diff);
   }
@@ -67,7 +74,8 @@ class _TeleconsultaWaitingScreenState extends State<TeleconsultaWaitingScreen> {
   Future<void> _fetch() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('auth_token') ?? '';
-    final uri = Uri.parse('$API_URL/teleconsultas/${widget.consultaId}').replace(
+    final uri =
+        Uri.parse('$API_URL/teleconsultas/${widget.consultaId}').replace(
       queryParameters: {'paciente_uuid': widget.pacienteUuid},
     );
     final res = await http.get(
@@ -117,9 +125,11 @@ class _TeleconsultaWaitingScreenState extends State<TeleconsultaWaitingScreen> {
   Widget build(BuildContext context) {
     final estado = (_consulta?['estado'] ?? 'buscando_medico').toString();
     final asignada = estado == 'asignada' || estado == 'en_videollamada';
-    final expirada = estado == 'cancelada_sin_medico' || _remaining == Duration.zero;
-    final minutes = _remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = _remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final expirada = estado == 'cancelada_sin_medico';
+    final minutes =
+        _remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds =
+        _remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
     final progress = (_remaining.inSeconds / 300).clamp(0.0, 1.0);
 
     return Scaffold(
@@ -138,7 +148,11 @@ class _TeleconsultaWaitingScreenState extends State<TeleconsultaWaitingScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text('Teleconsulta #${widget.consultaId}', style: GoogleFonts.manrope(color: _textMuted, fontSize: 13, fontWeight: FontWeight.w800)),
+                Text('Teleconsulta #${widget.consultaId}',
+                    style: GoogleFonts.manrope(
+                        color: _textMuted,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800)),
                 const SizedBox(height: 18),
                 const Spacer(),
                 _glass(
@@ -149,8 +163,19 @@ class _TeleconsultaWaitingScreenState extends State<TeleconsultaWaitingScreen> {
                         height: 86,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: (asignada ? _primary : expirada ? _warning : _primary).withOpacity(0.14),
-                          border: Border.all(color: asignada ? _primary : expirada ? _warning : _primary, width: 1.4),
+                          color: (asignada
+                                  ? _primary
+                                  : expirada
+                                      ? _warning
+                                      : _primary)
+                              .withOpacity(0.14),
+                          border: Border.all(
+                              color: asignada
+                                  ? _primary
+                                  : expirada
+                                      ? _warning
+                                      : _primary,
+                              width: 1.4),
                         ),
                         child: Icon(
                           asignada
@@ -158,7 +183,11 @@ class _TeleconsultaWaitingScreenState extends State<TeleconsultaWaitingScreen> {
                               : expirada
                                   ? PhosphorIconsRegular.clockClockwise
                                   : PhosphorIconsRegular.stethoscope,
-                          color: asignada ? _primary : expirada ? _warning : _primary,
+                          color: asignada
+                              ? _primary
+                              : expirada
+                                  ? _warning
+                                  : _primary,
                           size: 38,
                         ),
                       ),
@@ -167,24 +196,36 @@ class _TeleconsultaWaitingScreenState extends State<TeleconsultaWaitingScreen> {
                         asignada
                             ? 'Tu médico está disponible'
                             : expirada
-                                ? 'No encontramos médicos disponibles'
+                                ? 'La solicitud vencio'
                                 : 'Buscando un médico disponible',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(color: _textMain, fontSize: 24, height: 1.12, fontWeight: FontWeight.w900),
+                        style: GoogleFonts.manrope(
+                            color: _textMain,
+                            fontSize: 24,
+                            height: 1.12,
+                            fontWeight: FontWeight.w900),
                       ),
                       const SizedBox(height: 12),
                       Text(
                         asignada
                             ? '${_consulta?['medico_nombre'] ?? 'Profesional'}\nMatrícula: ${_consulta?['medico_matricula'] ?? '-'}'
                             : expirada
-                                ? 'No se realizó ningún cobro.'
-                                : 'Te mantenemos en sala de espera durante 5 minutos.',
+                                ? 'Ningun profesional acepto dentro del plazo. No se realizo ningun cobro.'
+                                : 'Avisamos a los medicos disponibles. El primero que acepte iniciara la atencion.',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.manrope(color: _textMuted, fontSize: 14.5, height: 1.42, fontWeight: FontWeight.w600),
+                        style: GoogleFonts.manrope(
+                            color: _textMuted,
+                            fontSize: 14.5,
+                            height: 1.42,
+                            fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 20),
                       if (!asignada && !expirada) ...[
-                        Text('$minutes:$seconds', style: GoogleFonts.manrope(color: _primary, fontSize: 42, fontWeight: FontWeight.w900)),
+                        Text('$minutes:$seconds',
+                            style: GoogleFonts.manrope(
+                                color: _primary,
+                                fontSize: 42,
+                                fontWeight: FontWeight.w900)),
                         const SizedBox(height: 12),
                         ClipRRect(
                           borderRadius: BorderRadius.circular(999),
@@ -208,7 +249,9 @@ class _TeleconsultaWaitingScreenState extends State<TeleconsultaWaitingScreen> {
                           builder: (_) => TeleconsultaRoomScreen(
                             consultaId: widget.consultaId,
                             pacienteUuid: widget.pacienteUuid,
-                            roomUrl: (_consulta?['daily_room_url'] ?? _consulta?['video_url']).toString(),
+                            roomUrl: (_consulta?['daily_room_url'] ??
+                                    _consulta?['video_url'])
+                                .toString(),
                           ),
                         ),
                       );
@@ -219,26 +262,31 @@ class _TeleconsultaWaitingScreenState extends State<TeleconsultaWaitingScreen> {
                       backgroundColor: _primary,
                       foregroundColor: _textDark,
                       minimumSize: const Size(double.infinity, 54),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-                      textStyle: GoogleFonts.manrope(fontWeight: FontWeight.w900),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18)),
+                      textStyle:
+                          GoogleFonts.manrope(fontWeight: FontWeight.w900),
                     ),
                   )
                 else if (!expirada)
                   OutlinedButton.icon(
                     onPressed: _cancelando ? null : _cancelar,
                     icon: const Icon(PhosphorIconsRegular.xCircle),
-                    label: Text(_cancelando ? 'Cancelando...' : 'Cancelar búsqueda'),
+                    label: Text(
+                        _cancelando ? 'Cancelando...' : 'Cancelar búsqueda'),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: _textMain,
                       minimumSize: const Size(double.infinity, 54),
                       side: BorderSide(color: Colors.white.withOpacity(0.16)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18)),
                     ),
                   )
                 else
                   ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 54)),
+                    style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(double.infinity, 54)),
                     child: const Text('Volver'),
                   ),
               ],

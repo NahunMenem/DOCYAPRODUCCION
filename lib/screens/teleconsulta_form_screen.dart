@@ -144,13 +144,21 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
 
     final data = jsonDecode(res.body);
     await prefs.setString('teleconsulta_activa_id', data['id'].toString());
+    final rawExpiresAt = (data['expires_at'] ?? '').toString();
+    final parsedExpiresAt = DateTime.tryParse(rawExpiresAt)?.toLocal();
+    final expiresAt = parsedExpiresAt != null &&
+            parsedExpiresAt.isAfter(
+              DateTime.now().subtract(const Duration(seconds: 10)),
+            )
+        ? parsedExpiresAt
+        : DateTime.now().add(const Duration(minutes: 5));
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => TeleconsultaWaitingScreen(
           consultaId: data['id'],
           pacienteUuid: widget.pacienteUuid,
-          expiresAt: DateTime.parse(data['expires_at']),
+          expiresAt: expiresAt,
         ),
       ),
     );
