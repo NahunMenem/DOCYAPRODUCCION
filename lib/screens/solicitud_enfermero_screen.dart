@@ -803,46 +803,133 @@ class _SolicitudEnfermeroScreenState extends State<SolicitudEnfermeroScreen>
     );
   }
 
-  Widget _cardPago(int precio, bool isDark) {
+  Widget _cardPagoDigital(int precio, bool isDark) {
+    final primary = Theme.of(context).colorScheme.primary;
+    final esSaldoMp = metodoPago == "saldo_mp";
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _title("Método de pago", isDark),
-        const SizedBox(height: 16),
         _precioCard(precio, isDark),
-        const SizedBox(height: 14),
-        _paymentOption(
-          value: "tarjeta",
-          icon: Icons.credit_card_rounded,
-          title: "Tarjeta de Crédito / Débito",
-          subtitle: "Pago seguro dentro de DocYa",
-          color: const Color(0xFF009EE3),
-        ),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: _paymentTab(value: "tarjeta", icon: Icons.credit_card_rounded, label: "Tarjeta de crédito", isDark: isDark)),
+          const SizedBox(width: 8),
+          Expanded(child: _paymentTab(value: "saldo_mp", icon: Icons.account_balance_wallet_rounded, label: "Saldo Mercado Pago", isDark: isDark)),
+        ]),
+        const SizedBox(height: 16),
+        Row(children: [
+          Icon(Icons.lock_outline_rounded, color: primary, size: 18),
+          const SizedBox(width: 8),
+          Text("Pago con preautorizacion",
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 15, fontWeight: FontWeight.w900)),
+        ]),
         const SizedBox(height: 12),
-        const SizedBox(height: 12),
-        _paymentOption(
-          value: "saldo_mp",
-          icon: Icons.account_balance_wallet_rounded,
-          title: "Saldo Mercado Pago",
-          subtitle: "Paga con tu saldo de MP. Reintegro casi instantaneo si no hay enfermero.",
-          color: const Color(0xFF00BCFF),
-        ),
-        const SizedBox(height: 12),
-        _paymentOption(
-          value: "efectivo",
-          icon: Icons.attach_money_rounded,
-          title: "Efectivo / Transferencia",
-          subtitle: "Pago directo al enfermero o por transferencia",
-          color: Theme.of(context).colorScheme.primary,
-        ),
+        _pagoInfoRow(Icons.hourglass_empty_rounded, "No se cobra ahora",
+            esSaldoMp ? "El monto queda reservado en tu saldo MP pero no debitado." : "El monto queda reservado en tu tarjeta pero no debitado.", isDark),
+        const SizedBox(height: 8),
+        _pagoInfoRow(Icons.check_circle_outline_rounded, "Se cobra solo si un enfermero acepta",
+            "En el momento exacto que alguien acepta tu consulta.", isDark),
+        const SizedBox(height: 8),
+        _pagoInfoRow(Icons.replay_rounded, "Si nadie acepta o cancelas",
+            esSaldoMp ? "El reintegro es casi instantaneo — vuelve a tu saldo MP en minutos." : "La reserva se libera sola en menos de 5 minutos. No perdes nada.", isDark),
         if (metodoPago == "tarjeta") ...[
           const SizedBox(height: 16),
           _savedCardsSection(isDark),
         ],
-        if (metodoPago == "saldo_mp") ...[
-          const SizedBox(height: 16),
-          _saldoMpInfoRows(isDark),
+      ],
+    );
+  }
+
+  Widget _cardEfectivoEnfermero(bool isDark) {
+    final selected = metodoPago == "efectivo";
+    final primary = Theme.of(context).colorScheme.primary;
+    return GestureDetector(
+      onTap: () => setState(() => metodoPago = "efectivo"),
+      child: Row(
+        children: [
+          Container(
+            width: 44, height: 44,
+            decoration: BoxDecoration(
+              color: selected ? primary.withOpacity(0.14) : (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03)),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(Icons.attach_money_rounded,
+                color: selected ? primary : (isDark ? Colors.white54 : Colors.black45)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text("Efectivo / Transferencia",
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w700, fontSize: 14)),
+              const SizedBox(height: 2),
+              Text("Pago directo al enfermero cuando llega o por transferencia.",
+                  style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12.5, height: 1.3)),
+            ]),
+          ),
+          Radio<String>(
+            value: "efectivo",
+            groupValue: metodoPago,
+            onChanged: (v) => setState(() => metodoPago = v!),
+            activeColor: primary,
+          ),
         ],
+      ),
+    );
+  }
+
+  Widget _paymentTab({required String value, required IconData icon, required String label, required bool isDark}) {
+    final selected = metodoPago == value;
+    final primary = Theme.of(context).colorScheme.primary;
+    return GestureDetector(
+      onTap: () => setState(() => metodoPago = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
+        decoration: BoxDecoration(
+          color: selected ? primary.withOpacity(0.14) : (isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? primary.withOpacity(0.55) : (isDark ? Colors.white.withOpacity(0.09) : Colors.black.withOpacity(0.07)),
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 15, color: selected ? primary : (isDark ? Colors.white54 : Colors.black45)),
+            const SizedBox(width: 6),
+            Flexible(child: Text(label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: selected ? primary : (isDark ? Colors.white54 : Colors.black45),
+                fontSize: 11.5,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                height: 1.2,
+              ),
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _pagoInfoRow(IconData icon, String titulo, String detalle, bool isDark) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: primary),
+        const SizedBox(width: 8),
+        Expanded(
+          child: RichText(
+            text: TextSpan(children: [
+              TextSpan(text: '$titulo. ',
+                  style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w800, fontSize: 12.5)),
+              TextSpan(text: detalle,
+                  style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 12.5, height: 1.35)),
+            ]),
+          ),
+        ),
       ],
     );
   }
@@ -1404,25 +1491,12 @@ class _SolicitudEnfermeroScreenState extends State<SolicitudEnfermeroScreen>
                 children: [
                   _glassCard(_header(isDark)),
                   _glassCard(_cardMotivo(isDark)),
-                  _glassCard(_cardPago(precio, isDark)),
-                  const SizedBox(height: 20),
+                  _glassCard(_cardPagoDigital(precio, isDark)),
                   if (metodoPago == "tarjeta") _botonMP(),
                   if (metodoPago == "saldo_mp") _botonSaldoMp(),
-                  if (metodoPago == "tarjeta")
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        "La autorización se completa dentro de DocYa, sin salir a una app externa.",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12.5,
-                          color: isDark ? Colors.white60 : Colors.black54,
-                        ),
-                      ),
-                    ),
-                  _warningMP(isDark),
+                  _glassCard(_cardEfectivoEnfermero(isDark)),
                   const SizedBox(height: 20),
-                  _botonSolicitar(isDark),
+                  if (metodoPago == "efectivo") _botonSolicitar(isDark),
                 ],
               ),
             ),
