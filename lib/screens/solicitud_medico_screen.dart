@@ -1543,8 +1543,8 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
                     const SizedBox(width: 10),
                     Text(
                       _selectedSavedMethod != null
-                          ? "Autorizar tarjeta guardada"
-                          : "Autorizar dentro de DocYa",
+                          ? "Autorizar y solicitar médico"
+                          : "Autorizar y solicitar médico",
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,

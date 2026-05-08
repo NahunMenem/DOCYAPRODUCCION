@@ -1264,9 +1264,7 @@ class _SolicitudEnfermeroScreenState extends State<SolicitudEnfermeroScreen>
                     const Icon(Icons.lock_rounded, color: Colors.white),
                     const SizedBox(width: 10),
                     Text(
-                      _selectedSavedMethod != null
-                          ? "Autorizar tarjeta guardada"
-                          : "Autorizar dentro de DocYa",
+                      "Autorizar y solicitar enfermero",
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w800,
