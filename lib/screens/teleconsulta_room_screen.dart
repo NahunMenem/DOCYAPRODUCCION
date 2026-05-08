@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:webview_flutter_android/webview_flutter_android.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 class TeleconsultaRoomScreen extends StatefulWidget {
   final int consultaId;
@@ -67,38 +68,96 @@ class _TeleconsultaRoomScreenState extends State<TeleconsultaRoomScreen> {
     }
   }
 
+  Future<bool> _confirmarSalida() async {
+    return await showDialog<bool>(
+          context: context,
+          barrierColor: Colors.black87,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF102730),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            icon: const Icon(PhosphorIconsRegular.videoCamera, color: _primary, size: 32),
+            title: Text(
+              '¿Salir de la videollamada?',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.manrope(
+                color: _textMain,
+                fontWeight: FontWeight.w900,
+                fontSize: 17,
+              ),
+            ),
+            content: Text(
+              'Si salís ahora, la teleconsulta seguirá activa pero vas a dejar la llamada.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.manrope(
+                color: const Color(0xFF9FB6BD),
+                fontSize: 13.5,
+                height: 1.4,
+              ),
+            ),
+            actionsAlignment: MainAxisAlignment.center,
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                style: TextButton.styleFrom(
+                  foregroundColor: _primary,
+                  textStyle: GoogleFonts.manrope(fontWeight: FontWeight.w800),
+                ),
+                child: const Text('Continuar en llamada'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFf87171),
+                  textStyle: GoogleFonts.manrope(fontWeight: FontWeight.w700),
+                ),
+                child: const Text('Salir'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _bgBase,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            Positioned.fill(child: WebViewWidget(controller: _controller)),
-            if (_loading)
-              Positioned.fill(
-                child: Container(
-                  color: _bgBase,
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const CircularProgressIndicator(color: _primary),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Conectando teleconsulta...',
-                          style: GoogleFonts.manrope(
-                            color: _textMain,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) async {
+        if (didPop) return;
+        final salir = await _confirmarSalida();
+        if (salir && mounted) Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        backgroundColor: _bgBase,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              Positioned.fill(child: WebViewWidget(controller: _controller)),
+              if (_loading)
+                Positioned.fill(
+                  child: Container(
+                    color: _bgBase,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(color: _primary),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Conectando teleconsulta...',
+                            style: GoogleFonts.manrope(
+                              color: _textMain,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-          ],
+            ],
+          ),
         ),
       ),
     );
