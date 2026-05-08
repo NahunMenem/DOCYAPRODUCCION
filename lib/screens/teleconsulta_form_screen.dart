@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -26,14 +25,19 @@ class TeleconsultaFormScreen extends StatefulWidget {
 }
 
 class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
-  static const _bgBase = Color(0xFF071820);
-  static const _surface = Color(0xFF102730);
-  static const _primary = Color(0xFF25D7C8);
+  // Colores fijos (iguales en ambos modos)
+  static const _primary  = Color(0xFF25D7C8);
   static const _secondary = Color(0xFF14B8A6);
-  static const _textMain = Color(0xFFD9ECF2);
-  static const _textMuted = Color(0xFF9FB6BD);
-  static const _textDark = Color(0xFF04232A);
-  static const _warning = Color(0xFFFBBF24);
+  static const _textDark  = Color(0xFF04232A);
+  static const _warning   = Color(0xFFFBBF24);
+
+  // Estado de tema — se actualiza en build()
+  bool _isDark = true;
+
+  // Colores que dependen del tema
+  Color get _bgBase   => _isDark ? const Color(0xFF071820) : const Color(0xFFEEFBF9);
+  Color get _textMain => _isDark ? const Color(0xFFD9ECF2) : const Color(0xFF0A2832);
+  Color get _textMuted => _isDark ? const Color(0xFF9FB6BD) : const Color(0xFF4A7A85);
 
   final _motivoCtrl = TextEditingController();
   String _direccionGuardada = '';
@@ -51,6 +55,7 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
   int? _consultaPreviaId;
   String? _paymentId;
   String _pagoPreautorizado = '';
+  String _metodoPago = 'tarjeta'; // 'tarjeta' | 'saldo_mp'
   final _paymentService = PaymentMethodsService();
   final _authService = AuthService();
   final _nativePaymentService = MercadoPagoNativeService();
@@ -105,9 +110,13 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
       if (!mounted) return;
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
+        final tipo = (data['tipo'] ?? '').toString();
+        final esNocturna = tipo == 'teleconsulta_nocturna';
         setState(() {
           _precioActual = _parseMonto(data['monto']);
-          _descripcionPrecio = (data['descripcion'] ?? '').toString();
+          _descripcionPrecio = esNocturna
+              ? 'Tarifa nocturna (22:00-06:00).'
+              : 'Tarifa diurna (06:00-22:00).';
           _cargandoTarifa = false;
         });
         return;
@@ -205,6 +214,95 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
 
     if (!mounted) return;
     setState(() => _cargandoDireccion = false);
+  }
+
+  Future<void> _pagarConSaldoMp() async {
+    final precio = _precioActual;
+    if (precio == null || precio <= 0) {
+      _toast('No pudimos cargar el precio de la teleconsulta.');
+      return;
+    }
+    if (_motivoCtrl.text.trim().isEmpty || _direccionGuardada.isEmpty || !_consentimiento) {
+      _toast('Completá el motivo, cargá tu dirección y aceptá el consentimiento.');
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      // 1. Crear consulta previa
+      final previa = await http.post(
+        Uri.parse('$API_URL/consultas/crear_previa'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'paciente_uuid': widget.pacienteUuid,
+          'motivo': _motivoCtrl.text.trim(),
+          'direccion': _direccionGuardada,
+          'lat': 0, 'lng': 0,
+          'tipo': 'medico',
+          'canal_atencion': 'teleconsulta',
+        }),
+      );
+      if (previa.statusCode != 200) {
+        _toast('No se pudo preparar la teleconsulta.');
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
+      _consultaPreviaId = jsonDecode(previa.body)['consulta_id'];
+
+      // 2. Crear preferencia MP saldo
+      final prefRes = await http.post(
+        Uri.parse('$API_URL/pagos/saldo-mp/preferencia'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'paciente_uuid': widget.pacienteUuid,
+          'consulta_id': _consultaPreviaId,
+          'monto': precio.toDouble(),
+          'motivo': 'Teleconsulta DocYa',
+        }),
+      );
+      if (prefRes.statusCode != 200) {
+        final err = jsonDecode(prefRes.body);
+        _toast((err['detail']?['message'] ?? err['message'] ?? 'Error al iniciar el pago').toString());
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
+      final prefData = jsonDecode(prefRes.body);
+      final initPoint = prefData['init_point']?.toString() ?? '';
+      if (initPoint.isEmpty) {
+        _toast('No se pudo obtener la URL de pago.');
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
+
+      if (!mounted) return;
+
+      // 3. Abrir checkout MP en el browser embebido
+      final result = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PaymentCheckoutBrowserScreen(
+            title: 'Pagar con Mercado Pago',
+            url: Uri.parse(initPoint),
+          ),
+        ),
+      );
+
+      final status = result?['status']?.toString() ?? 'cancelled';
+      if (status != 'success') {
+        _toast(status == 'cancelled' ? 'Pago cancelado' : 'No se pudo completar el pago');
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
+
+      _paymentId = result!['payment_id']?.toString();
+      _pagoPreautorizado = 'preautorizado';
+      await _crear();
+    } catch (e) {
+      _toast(e.toString().replaceFirst('Exception: ', '').trim().isNotEmpty
+          ? e.toString().replaceFirst('Exception: ', '')
+          : 'Error al iniciar el pago');
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _preautorizarYCrear() async {
@@ -438,7 +536,7 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
             : _localidadGuardada,
         'necesita_certificado': _certificado,
         'consentimiento_teleconsulta': _consentimiento,
-        'metodo_pago': 'tarjeta',
+        'metodo_pago': _metodoPago,
         'payment_id': _paymentId ?? '',
       }),
     );
@@ -491,14 +589,20 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
         labelStyle:
             GoogleFonts.manrope(color: _textMuted, fontWeight: FontWeight.w600),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.06),
+        fillColor: _isDark
+            ? Colors.white.withOpacity(0.06)
+            : Colors.black.withOpacity(0.04),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.10)),
+          borderSide: BorderSide(
+            color: _isDark
+                ? Colors.white.withOpacity(0.10)
+                : Colors.black.withOpacity(0.08),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
@@ -512,20 +616,31 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
     required Widget child,
     EdgeInsets padding = const EdgeInsets.all(16),
   }) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: _surface.withOpacity(0.78),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.10)),
-          ),
-          child: child,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      padding: padding,
+      margin: const EdgeInsets.only(bottom: 0),
+      decoration: BoxDecoration(
+        color: _isDark
+            ? Colors.white.withOpacity(0.08)
+            : Colors.white.withOpacity(0.94),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: _isDark
+              ? Colors.white.withOpacity(0.14)
+              : const Color(0xFF14B8A6).withOpacity(0.08),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: _isDark
+                ? Colors.black.withOpacity(0.18)
+                : const Color(0xFF14B8A6).withOpacity(0.08),
+            blurRadius: 22,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
+      child: child,
     );
   }
 
@@ -540,9 +655,15 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: _isDark
+            ? Colors.white.withOpacity(0.05)
+            : Colors.black.withOpacity(0.03),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.10)),
+        border: Border.all(
+          color: _isDark
+              ? Colors.white.withOpacity(0.10)
+              : Colors.black.withOpacity(0.07),
+        ),
       ),
       child: Row(
         children: [
@@ -628,12 +749,18 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(value ? 0.09 : 0.04),
+          color: _isDark
+              ? Colors.white.withOpacity(value ? 0.09 : 0.04)
+              : (value
+                  ? _primary.withOpacity(0.08)
+                  : Colors.black.withOpacity(0.03)),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: value
                 ? _primary.withOpacity(0.50)
-                : Colors.white.withOpacity(0.09),
+                : (_isDark
+                    ? Colors.white.withOpacity(0.09)
+                    : Colors.black.withOpacity(0.08)),
           ),
         ),
         child: Row(
@@ -815,27 +942,44 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Necesitas revision fisica',
-            style: GoogleFonts.manrope(
-              color: _textMain,
-              fontSize: 14,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            'Si tenes fiebre alta, dolor intenso, dificultad para respirar, vomitos persistentes o sintomas que requieren evaluacion presencial, solicita un medico a domicilio.',
-            style: GoogleFonts.manrope(
-              color: _textMuted,
-              fontSize: 12.5,
-              height: 1.35,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
         ],
       ),
+    );
+  }
+
+  Widget _pagoInfoRow(IconData icon, String titulo, String subtitulo) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: _primary, size: 16),
+        const SizedBox(width: 8),
+        Expanded(
+          child: RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(
+                  text: '$titulo. ',
+                  style: GoogleFonts.manrope(
+                    color: _textMain,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    height: 1.35,
+                  ),
+                ),
+                TextSpan(
+                  text: subtitulo,
+                  style: GoogleFonts.manrope(
+                    color: _textMuted,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -847,6 +991,45 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Selector de método ─────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: _metodoTab(
+                  icon: PhosphorIconsRegular.creditCard,
+                  label: 'Tarjeta de crédito',
+                  selected: _metodoPago == 'tarjeta',
+                  onTap: () => setState(() => _metodoPago = 'tarjeta'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _metodoTab(
+                  icon: PhosphorIconsRegular.wallet,
+                  label: 'Saldo Mercado Pago',
+                  selected: _metodoPago == 'saldo_mp',
+                  onTap: () => setState(() => _metodoPago = 'saldo_mp'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          // ── Info según método ──────────────────────────────────────
+          if (_metodoPago == 'saldo_mp') ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(PhosphorIconsRegular.info, color: _primary, size: 16),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Vas a ser redirigido a Mercado Pago para pagar con el saldo de tu cuenta. Si ningún médico acepta, el reintegro es casi instantáneo.',
+                    style: GoogleFonts.manrope(color: _textMuted, fontSize: 12.5, height: 1.4, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ] else ...[
           Row(
             children: [
               const Icon(
@@ -867,16 +1050,12 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          _pagoInfoRow(PhosphorIconsRegular.clockCountdown, 'No se cobra ahora', 'El monto queda reservado en tu tarjeta pero no debitado.'),
           const SizedBox(height: 8),
-          Text(
-            'No se cobra ahora. DocYa reserva el pago y lo confirma solo cuando un medico acepta la teleconsulta. Si nadie la toma o la cancelas a tiempo, la reserva se libera.',
-            style: GoogleFonts.manrope(
-              color: _textMuted,
-              fontSize: 12.5,
-              height: 1.38,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          _pagoInfoRow(PhosphorIconsFill.checkCircle, 'Se cobra solo si un medico acepta', 'En el momento exacto que alguien acepta tu consulta.'),
+          const SizedBox(height: 8),
+          _pagoInfoRow(PhosphorIconsRegular.arrowCounterClockwise, 'Si nadie acepta o cancelas', 'La reserva se libera sola en menos de 5 minutos. No perdes nada.'),
           if (_loadingSavedMethods) ...[
             const SizedBox(height: 12),
             const LinearProgressIndicator(
@@ -889,9 +1068,15 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.05),
+                color: _isDark
+                    ? Colors.white.withOpacity(0.05)
+                    : Colors.black.withOpacity(0.03),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.white.withOpacity(0.10)),
+                border: Border.all(
+                  color: _isDark
+                      ? Colors.white.withOpacity(0.10)
+                      : Colors.black.withOpacity(0.07),
+                ),
               ),
               child: Row(
                 children: [
@@ -929,19 +1114,67 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
               ),
             ),
           ],
+        ], // cierre else tarjeta
         ],
+      ),
+    );
+  }
+
+  Widget _metodoTab({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+        decoration: BoxDecoration(
+          color: selected
+              ? _primary.withOpacity(0.14)
+              : (_isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03)),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? _primary.withOpacity(0.55) : (_isDark ? Colors.white.withOpacity(0.09) : Colors.black.withOpacity(0.07)),
+            width: selected ? 1.4 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: selected ? _primary : _textMuted, size: 15),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.manrope(
+                  color: selected ? _primary : _textMuted,
+                  fontSize: 11.5,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    _isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       backgroundColor: _bgBase,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [_bgBase, Color(0xFF0B2732), Color(0xFF071820)],
+            colors: _isDark
+                ? [_bgBase, const Color(0xFF0B2732), const Color(0xFF071820)]
+                : [_bgBase, const Color(0xFFD9F2EF), const Color(0xFFEEFBF9)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -954,7 +1187,7 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(
+                    icon: Icon(
                       PhosphorIconsRegular.arrowLeft,
                       color: _textMain,
                     ),
@@ -1080,7 +1313,7 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
               ElevatedButton.icon(
                 onPressed: _loading || _cargandoDireccion || _cargandoTarifa
                     ? null
-                    : _preautorizarYCrear,
+                    : (_metodoPago == 'saldo_mp' ? _pagarConSaldoMp : _preautorizarYCrear),
                 icon: _loading
                     ? const SizedBox(
                         width: 18,
@@ -1093,8 +1326,10 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
                     : const Icon(PhosphorIconsBold.videoCamera),
                 label: Text(
                   _loading
-                      ? 'Autorizando...'
-                      : 'Autorizar y pedir teleconsulta',
+                      ? 'Procesando...'
+                      : _metodoPago == 'saldo_mp'
+                          ? 'Pagar con saldo y pedir teleconsulta'
+                          : 'Autorizar y pedir teleconsulta',
                 ),
                 style: ElevatedButton.styleFrom(
                   minimumSize: const Size(double.infinity, 54),

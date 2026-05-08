@@ -9,6 +9,7 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../globals.dart';
+import 'teleconsulta_finalizada_screen.dart';
 import 'teleconsulta_room_screen.dart';
 
 class TeleconsultaWaitingScreen extends StatefulWidget {
@@ -83,7 +84,22 @@ class _TeleconsultaWaitingScreenState extends State<TeleconsultaWaitingScreen> {
       headers: {if (token.isNotEmpty) 'Authorization': 'Bearer $token'},
     );
     if (res.statusCode != 200 || !mounted) return;
-    setState(() => _consulta = jsonDecode(res.body));
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    if (data['estado'] == 'finalizada' && mounted) {
+      _poller?.cancel();
+      _timer?.cancel();
+      await SharedPreferences.getInstance()
+          .then((p) => p.remove('teleconsulta_activa_id'));
+      if (mounted) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => const TeleconsultaFinalizadaScreen(),
+          ),
+        );
+      }
+      return;
+    }
+    setState(() => _consulta = data);
   }
 
   Future<void> _cancelar() async {
