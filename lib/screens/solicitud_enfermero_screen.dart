@@ -423,7 +423,7 @@ class _SolicitudEnfermeroScreenState extends State<SolicitudEnfermeroScreen>
       "direccion": widget.direccion,
       "lat": widget.ubicacion.latitude,
       "lng": widget.ubicacion.longitude,
-      "metodo_pago": metodoPago,
+      "metodo_pago": metodoPago == "saldo_mp" ? "saldo_mp" : metodoPago,
       "payment_id": _paymentId ?? "",
       "tipo": "enfermero",
     });
@@ -485,6 +485,156 @@ class _SolicitudEnfermeroScreenState extends State<SolicitudEnfermeroScreen>
       message: m,
       type: SnackType.warning,
     );
+  }
+
+  Widget _saldoMpInfoRows(bool isDark) {
+    final items = [
+      (Icons.hourglass_empty_rounded, 'No se cobra ahora',
+          'El monto queda reservado en tu cuenta MP pero no debitado.'),
+      (Icons.check_circle_outline_rounded, 'Se cobra solo si un enfermero acepta',
+          'En el momento exacto que alguien acepta tu consulta.'),
+      (Icons.replay_rounded, 'Si nadie acepta o cancelas',
+          'El reintegro es casi instantaneo — vuelve a tu saldo MP en minutos.'),
+    ];
+    return Column(
+      children: items.map((item) {
+        final (icon, titulo, detalle) = item;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 18, color: const Color(0xFF00BCFF)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: RichText(
+                  text: TextSpan(children: [
+                    TextSpan(
+                      text: '$titulo. ',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                      ),
+                    ),
+                    TextSpan(
+                      text: detalle,
+                      style: TextStyle(
+                        color: isDark ? Colors.white60 : Colors.black54,
+                        fontSize: 12.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ]),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _botonSaldoMp() {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: ElevatedButton.icon(
+        onPressed: pagando ? null : _pagarConSaldoMp,
+        icon: pagando
+            ? const SizedBox(
+                width: 18, height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            : const Icon(Icons.account_balance_wallet_rounded),
+        label: Text(pagando ? 'Procesando...' : 'Pagar con saldo MP y solicitar'),
+        style: ElevatedButton.styleFrom(
+          minimumSize: const Size(double.infinity, 54),
+          backgroundColor: const Color(0xFF00BCFF),
+          foregroundColor: Colors.white,
+          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          elevation: 0,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pagarConSaldoMp() async {
+    if (motivoCtrl.text.trim().isEmpty || !aceptaConsentimiento) {
+      _toast('Completá el motivo y aceptá la declaración jurada.');
+      return;
+    }
+    setState(() => pagando = true);
+    try {
+      final precio = _precioActual ?? 0;
+      final previa = await http.post(
+        Uri.parse('$API_URL/consultas/crear_previa'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'paciente_uuid': pacienteUuidGlobal,
+          'motivo': motivoCtrl.text.trim(),
+          'direccion': widget.direccion,
+          'lat': widget.ubicacion.latitude,
+          'lng': widget.ubicacion.longitude,
+          'tipo': 'enfermero',
+        }),
+      );
+      if (previa.statusCode != 200) {
+        _toast('No se pudo preparar la consulta.');
+        setState(() => pagando = false);
+        return;
+      }
+      consultaPreviaId = jsonDecode(previa.body)['consulta_id'];
+
+      final prefRes = await http.post(
+        Uri.parse('$API_URL/pagos/saldo-mp/preferencia'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'paciente_uuid': pacienteUuidGlobal,
+          'consulta_id': consultaPreviaId,
+          'monto': precio.toDouble(),
+          'motivo': motivoCtrl.text.trim().isEmpty
+              ? 'Atención de enfermería DocYa'
+              : motivoCtrl.text.trim(),
+        }),
+      );
+      if (prefRes.statusCode != 200) {
+        final err = jsonDecode(prefRes.body);
+        _toast((err['detail']?['message'] ?? err['message'] ?? 'Error al iniciar el pago').toString());
+        setState(() => pagando = false);
+        return;
+      }
+      final initPoint = jsonDecode(prefRes.body)['init_point']?.toString() ?? '';
+      if (initPoint.isEmpty) {
+        _toast('No se pudo obtener la URL de pago.');
+        setState(() => pagando = false);
+        return;
+      }
+
+      if (!mounted) return;
+      final result = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PaymentCheckoutBrowserScreen(
+            title: 'Pagar con Mercado Pago',
+            url: Uri.parse(initPoint),
+          ),
+        ),
+      );
+
+      final status = result?['status']?.toString() ?? 'cancelled';
+      if (status != 'success') {
+        _toast(status == 'cancelled' ? 'Pago cancelado' : 'No se pudo completar el pago');
+        setState(() => pagando = false);
+        return;
+      }
+      _paymentId = result!['payment_id']?.toString();
+      pagoPreautorizadoGlobal = 'preautorizado';
+      setState(() => pagando = false);
+      await _solicitar();
+    } catch (e) {
+      _toast(e.toString().replaceFirst('Exception: ', ''));
+      setState(() => pagando = false);
+    }
   }
 
   Widget _glassCard(Widget child) {
@@ -669,6 +819,15 @@ class _SolicitudEnfermeroScreenState extends State<SolicitudEnfermeroScreen>
           color: const Color(0xFF009EE3),
         ),
         const SizedBox(height: 12),
+        const SizedBox(height: 12),
+        _paymentOption(
+          value: "saldo_mp",
+          icon: Icons.account_balance_wallet_rounded,
+          title: "Saldo Mercado Pago",
+          subtitle: "Paga con tu saldo de MP. Reintegro casi instantaneo si no hay enfermero.",
+          color: const Color(0xFF00BCFF),
+        ),
+        const SizedBox(height: 12),
         _paymentOption(
           value: "efectivo",
           icon: Icons.attach_money_rounded,
@@ -679,6 +838,10 @@ class _SolicitudEnfermeroScreenState extends State<SolicitudEnfermeroScreen>
         if (metodoPago == "tarjeta") ...[
           const SizedBox(height: 16),
           _savedCardsSection(isDark),
+        ],
+        if (metodoPago == "saldo_mp") ...[
+          const SizedBox(height: 16),
+          _saldoMpInfoRows(isDark),
         ],
       ],
     );
@@ -1244,6 +1407,7 @@ class _SolicitudEnfermeroScreenState extends State<SolicitudEnfermeroScreen>
                   _glassCard(_cardPago(precio, isDark)),
                   const SizedBox(height: 20),
                   if (metodoPago == "tarjeta") _botonMP(),
+                  if (metodoPago == "saldo_mp") _botonSaldoMp(),
                   if (metodoPago == "tarjeta")
                     Padding(
                       padding: const EdgeInsets.only(top: 8),
