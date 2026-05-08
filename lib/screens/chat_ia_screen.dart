@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../globals.dart';
 import 'filtro_medico_screen.dart';
+import 'solicitud_medico_screen.dart';
 
 class ChatIAScreen extends StatefulWidget {
   final String? direccion;
@@ -31,6 +32,7 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
 
   bool _cargando = false;
   bool _recomiendaMedico = false;
+  String _motivoSugerido = '';
 
   @override
   void initState() {
@@ -85,6 +87,8 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
           });
           if (data['recomienda_medico'] == true) {
             _recomiendaMedico = true;
+            final sugerido = (data['motivo_sugerido'] ?? '').toString().trim();
+            if (sugerido.isNotEmpty) _motivoSugerido = sugerido;
           }
           _cargando = false;
         });
@@ -122,13 +126,16 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
   }
 
   Future<void> _irASolicitarMedico() async {
+    // Si ya tenemos ubicación, vamos directo sin pasar por el filtro de triage
     if (widget.ubicacion != null) {
+      if (!mounted) return;
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => FiltroMedicoScreen(
+          builder: (_) => SolicitudMedicoScreen(
             direccion: widget.direccion ?? '',
             ubicacion: widget.ubicacion!,
+            motivoInicial: _motivoSugerido,
           ),
         ),
       );
@@ -151,12 +158,14 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
         final data = jsonDecode(utf8.decode(res.bodyBytes));
         final ubicacion = LatLng(data['lat'], data['lng']);
         final direccion = data['direccion'] ?? '';
+        if (!mounted) return;
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => FiltroMedicoScreen(
+            builder: (_) => SolicitudMedicoScreen(
               direccion: direccion,
               ubicacion: ubicacion,
+              motivoInicial: _motivoSugerido,
             ),
           ),
         );

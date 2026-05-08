@@ -23,11 +23,13 @@ import 'payment_checkout_browser_screen.dart';
 class SolicitudMedicoScreen extends StatefulWidget {
   final String direccion;
   final LatLng ubicacion;
+  final String? motivoInicial;
 
   const SolicitudMedicoScreen({
     super.key,
     required this.direccion,
     required this.ubicacion,
+    this.motivoInicial,
   });
 
   @override
@@ -67,6 +69,9 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (widget.motivoInicial != null && widget.motivoInicial!.isNotEmpty) {
+      motivoCtrl.text = widget.motivoInicial!;
+    }
     _cargarTarifa();
     _cargarTarjetasGuardadas();
     _verificarPerfilCompleto();
