@@ -48,6 +48,7 @@ class _HomeScreenState extends State<HomeScreen>
   bool cargando = true;
   bool tieneDireccion = false;
   bool _addressGateShown = false;
+  bool _modalComoFuncionaMostrado = false;
   LatLng? selectedLocation;
   GoogleMapController? mapController;
   int _selectedIndex = 0;
@@ -57,6 +58,17 @@ class _HomeScreenState extends State<HomeScreen>
   final TextEditingController deptoCtrl = TextEditingController();
   final TextEditingController indicacionesCtrl = TextEditingController();
   final TextEditingController telefonoCtrl = TextEditingController();
+  final PageController _comoFuncionaController = PageController();
+
+  static const List<String> _imagenesComoFunciona = [
+    'imagenes modal/paciente-1.png',
+    'imagenes modal/paciente-2.png',
+    'imagenes modal/paciente-3.png',
+    'imagenes modal/paciente-4.png',
+    'imagenes modal/paciente-5.png',
+    'imagenes modal/paciente-6.png',
+    'imagenes modal/paciente-7.png',
+  ];
 
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
@@ -135,6 +147,7 @@ class _HomeScreenState extends State<HomeScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _comoFuncionaController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -335,6 +348,7 @@ class _HomeScreenState extends State<HomeScreen>
           CameraUpdate.newLatLngZoom(selectedLocation!, 16),
         );
       }
+      _mostrarComoFuncionaSiCorresponde();
     } else {
       setState(() {
         tieneDireccion = false;
@@ -371,6 +385,207 @@ class _HomeScreenState extends State<HomeScreen>
         "Dirección guardada correctamente",
       );
     }
+  }
+
+  Future<void> _mostrarComoFuncionaSiCorresponde() async {
+    if (!mounted ||
+        _modalComoFuncionaMostrado ||
+        _addressGateShown ||
+        _imagenesComoFunciona.isEmpty) {
+      return;
+    }
+
+    _modalComoFuncionaMostrado = true;
+    final prefs = await SharedPreferences.getInstance();
+    final yaVisto = prefs.getBool('docya_como_funciona_visto_v3') ?? false;
+    if (yaVisto || !mounted) return;
+
+    await _mostrarModalComoFunciona();
+    await prefs.setBool('docya_como_funciona_visto_v3', true);
+  }
+
+  Future<void> _mostrarModalComoFunciona() async {
+    var paginaActual = 0;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final isLastPage = paginaActual == _imagenesComoFunciona.length - 1;
+            final size = MediaQuery.of(context).size;
+
+            return Dialog(
+              insetPadding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              backgroundColor: Colors.white,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: 520,
+                  maxHeight: size.height * 0.92,
+                ),
+                height: size.height * 0.92,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(22),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 26,
+                      offset: const Offset(0, 14),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
+                child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 42,
+                          height: 42,
+                          decoration: BoxDecoration(
+                            color:
+                                const Color(0xFF14B8A6).withValues(alpha: 0.14),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.help_rounded,
+                            color: Color(0xFF0F766E),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '¿Cómo funciona DocYa?',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(
+                                      color: const Color(0xFF071827),
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Conocé el paso a paso antes de pedir atención.',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      color: const Color(0xFF475569),
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: PageView.builder(
+                          controller: _comoFuncionaController,
+                          itemCount: _imagenesComoFunciona.length,
+                          onPageChanged: (index) {
+                            setDialogState(() {
+                              paginaActual = index;
+                            });
+                          },
+                          itemBuilder: (context, index) {
+                            return ColoredBox(
+                              color: Colors.white,
+                              child: InteractiveViewer(
+                                minScale: 1,
+                                maxScale: 4,
+                                clipBehavior: Clip.hardEdge,
+                                boundaryMargin: EdgeInsets.zero,
+                                child: Image.asset(
+                                  _imagenesComoFunciona[index],
+                                  fit: BoxFit.contain,
+                                  width: double.infinity,
+                                  height: double.infinity,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children:
+                          List.generate(_imagenesComoFunciona.length, (index) {
+                        final selected = index == paginaActual;
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          width: selected ? 22 : 7,
+                          height: 7,
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? const Color(0xFF14B8A6)
+                                : const Color(0xFF14B8A6)
+                                    .withValues(alpha: 0.25),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () => Navigator.of(dialogContext).pop(),
+                            child: const Text('Omitir todo'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF14B8A6),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 13),
+                            ),
+                            onPressed: () {
+                              if (isLastPage) {
+                                Navigator.of(dialogContext).pop();
+                                return;
+                              }
+
+                              _comoFuncionaController.nextPage(
+                                duration: const Duration(milliseconds: 260),
+                                curve: Curves.easeOutCubic,
+                              );
+                            },
+                            child: Text(isLastPage ? 'Empezar' : 'Continuar'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   void _mostrarSnackBar(BuildContext context, String mensaje,
@@ -531,6 +746,285 @@ class _HomeScreenState extends State<HomeScreen>
                 PhosphorIconsFill.arrowUpRight,
                 size: 18,
                 color: Colors.white.withOpacity(0.92),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _abrirMedicoDomicilio() {
+    if (selectedLocation != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => FiltroMedicoScreen(
+            direccion: direccionCtrl.text,
+            ubicacion: selectedLocation!,
+          ),
+        ),
+      );
+    } else {
+      _mostrarSnackBar(context, 'Selecciona una ubicacion primero',
+          exito: false);
+    }
+  }
+
+  void _abrirEnfermero() {
+    if (selectedLocation != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SolicitudEnfermeroScreen(
+            direccion: direccionCtrl.text,
+            ubicacion: selectedLocation!,
+          ),
+        ),
+      );
+    } else {
+      _mostrarSnackBar(context, "Selecciona una ubicacion primero",
+          exito: false);
+    }
+  }
+
+  void _abrirTeleconsulta() {
+    if ((_userId ?? '').isEmpty) {
+      _mostrarSnackBar(
+        context,
+        "No pudimos identificar tu sesion",
+        exito: false,
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => TeleconsultaFormScreen(
+          pacienteUuid: _userId!,
+        ),
+      ),
+    );
+  }
+
+  void _abrirDocYaIA() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ChatIAScreen(
+          direccion: tieneDireccion ? direccionCtrl.text : null,
+          ubicacion: selectedLocation,
+        ),
+      ),
+    );
+  }
+
+  void _abrirMedicacion() {
+    if ((_userId ?? '').isEmpty) {
+      _mostrarSnackBar(
+        context,
+        "No pudimos identificar tu sesion",
+        exito: false,
+      );
+      return;
+    }
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MedicacionScreen(
+          pacienteUuid: _userId!,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _llamarEmergencias() async {
+    final Uri callUri = Uri(scheme: 'tel', path: '911');
+    if (await canLaunchUrl(callUri)) {
+      await launchUrl(callUri);
+    } else {
+      if (!mounted) return;
+      _mostrarSnackBar(context, "No se pudo iniciar la llamada", exito: false);
+    }
+  }
+
+  Widget _quickActionsGrid(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Accesos rapidos",
+          style: TextStyle(
+            color: isDark ? Colors.white : const Color(0xFF071827),
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 12),
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 14,
+          crossAxisSpacing: 12,
+          childAspectRatio: 0.90,
+          children: [
+            _quickActionCard(
+              icon: PhosphorIconsFill.firstAid,
+              title: "Medico",
+              subtitle: "Consulta medica a domicilio",
+              color: const Color(0xFF14B8A6),
+              onTap: _abrirMedicoDomicilio,
+            ),
+            _quickActionCard(
+              icon: PhosphorIconsFill.syringe,
+              title: "Enfermero",
+              subtitle: "Cuidados y atencion a domicilio",
+              color: const Color(0xFF8B5CF6),
+              onTap: _abrirEnfermero,
+            ),
+            _quickActionCard(
+              icon: PhosphorIconsFill.videoCamera,
+              title: "Teleconsulta",
+              subtitle: "Consulta con un medico online",
+              color: const Color(0xFF0EA5E9),
+              onTap: _abrirTeleconsulta,
+            ),
+            _quickActionCard(
+              icon: PhosphorIconsFill.brain,
+              title: "DocYa IA",
+              subtitle: "Asistente de salud inteligente",
+              color: const Color(0xFF14B8A6),
+              onTap: _abrirDocYaIA,
+            ),
+            _quickActionCard(
+              icon: PhosphorIconsFill.pill,
+              title: "Medicacion",
+              subtitle: "Recordatorios y control de medicacion",
+              color: const Color(0xFFF59E0B),
+              onTap: _abrirMedicacion,
+            ),
+            _quickActionCard(
+              icon: PhosphorIconsFill.warningCircle,
+              title: "Emergencias",
+              subtitle: "Asistencia inmediata en la app",
+              color: const Color(0xFFEF4444),
+              urgent: true,
+              onTap: _llamarEmergencias,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _quickActionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+    bool urgent = false,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardColor = isDark
+        ? Color.lerp(const Color(0xFF0F232B), color, 0.08)!
+        : Color.lerp(Colors.white, color, urgent ? 0.08 : 0.045)!;
+    final subtitleColor = isDark ? Colors.white70 : const Color(0xFF475569);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Ink(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: isDark
+                  ? Colors.white.withOpacity(0.08)
+                  : color.withValues(alpha: urgent ? 0.24 : 0.16),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: isDark ? 0.10 : 0.08),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: 70,
+                height: 70,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: RadialGradient(
+                    colors: [
+                      Colors.white.withOpacity(isDark ? 0.18 : 0.95),
+                      color.withValues(alpha: isDark ? 0.42 : 0.22),
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0.22),
+                      blurRadius: 16,
+                      offset: const Offset(0, 7),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: color,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Icon(icon, color: Colors.white, size: 25),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                  height: 1.05,
+                ),
+              ),
+              const SizedBox(height: 5),
+              Text(
+                subtitle,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: subtitleColor,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w600,
+                  height: 1.15,
+                ),
+              ),
+              const Spacer(),
+              Align(
+                alignment: Alignment.bottomRight,
+                child: Icon(
+                  PhosphorIconsFill.caretRight,
+                  color: color,
+                  size: 18,
+                ),
               ),
             ],
           ),
@@ -766,263 +1260,267 @@ class _HomeScreenState extends State<HomeScreen>
                 ],
               ),
               const SizedBox(height: 20),
-              // 🔹 Botón principal premium
-              GestureDetector(
-                onTap: () {
-                  if (selectedLocation != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => FiltroMedicoScreen(
-                          direccion: direccionCtrl.text,
-                          ubicacion: selectedLocation!,
+              _quickActionsGrid(context),
+              const SizedBox(height: 24),
+              if (DateTime.now().millisecondsSinceEpoch < 0) ...[
+                // 🔹 Botón principal premium
+                GestureDetector(
+                  onTap: () {
+                    if (selectedLocation != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FiltroMedicoScreen(
+                            direccion: direccionCtrl.text,
+                            ubicacion: selectedLocation!,
+                          ),
                         ),
+                      );
+                    } else {
+                      _mostrarSnackBar(
+                          context, 'Seleccioná una ubicación primero',
+                          exito: false);
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 18),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF0EA896),
+                          Color(0xFF14B8A6),
+                          Color(0xFF2DD4BF),
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
                       ),
-                    );
-                  } else {
-                    _mostrarSnackBar(
-                        context, 'Seleccioná una ubicación primero',
-                        exito: false);
-                  }
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF0EA896),
-                        Color(0xFF14B8A6),
-                        Color(0xFF2DD4BF),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF14B8A6).withOpacity(0.52),
+                          blurRadius: 28,
+                          offset: const Offset(0, 10),
+                        ),
+                        BoxShadow(
+                          color: const Color(0xFF14B8A6).withOpacity(0.18),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
                       ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
                     ),
-                    borderRadius: BorderRadius.circular(18),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF14B8A6).withOpacity(0.52),
-                        blurRadius: 28,
-                        offset: const Offset(0, 10),
-                      ),
-                      BoxShadow(
-                        color: const Color(0xFF14B8A6).withOpacity(0.18),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.22),
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.22),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.18),
+                            ),
+                          ),
+                          child: const Icon(
+                            PhosphorIconsFill.firstAid,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Solicitar médico ahora',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  color: Colors.white,
+                                  letterSpacing: 0.1,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'Atención a domicilio · 24hs',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.white70,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.18),
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                        ),
-                        child: const Icon(
-                          PhosphorIconsFill.firstAid,
-                          color: Colors.white,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Solicitar médico ahora',
-                              style: TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white,
-                                letterSpacing: 0.1,
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'Atención a domicilio · 24hs',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.white70,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          PhosphorIconsFill.arrowRight,
-                          color: Colors.white,
-                          size: 18,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-
-              // 🤖 Card premium Chat IA
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => ChatIAScreen(
-                        direccion: tieneDireccion ? direccionCtrl.text : null,
-                        ubicacion: selectedLocation,
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF0D4F4A),
-                        Color(0xFF0F6B61),
-                        Color(0xFF14B8A6),
-                      ],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF14B8A6).withOpacity(0.35),
-                        blurRadius: 20,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 54,
-                        height: 54,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.16),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.24),
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.white.withOpacity(0.08),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          alignment: Alignment.center,
-                          children: [
-                            Icon(
-                              PhosphorIconsFill.sparkle,
-                              color: Colors.white,
-                              size: 29,
-                            ),
-                            Positioned(
-                              top: 10,
-                              right: 8,
-                              child: Container(
-                                width: 15,
-                                height: 15,
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF99F6E4),
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: const Color(0xFF0F6B61),
-                                    width: 1.2,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  PhosphorIconsFill.sparkle,
-                                  color: Color(0xFF0F6B61),
-                                  size: 8.5,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Consultar con DocYa IA',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0.1,
-                              ),
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              'Síntomas, dudas, consejos · gratis',
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.72),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                  color: Colors.white.withOpacity(0.3)),
-                            ),
-                            child: const Text(
-                              '(gratis)',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: 0,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Icon(
+                          child: const Icon(
                             PhosphorIconsFill.arrowRight,
                             color: Colors.white,
                             size: 18,
                           ),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 24),
+                const SizedBox(height: 12),
+
+                // 🤖 Card premium Chat IA
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => ChatIAScreen(
+                          direccion: tieneDireccion ? direccionCtrl.text : null,
+                          ubicacion: selectedLocation,
+                        ),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 18, vertical: 15),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF0D4F4A),
+                          Color(0xFF0F6B61),
+                          Color(0xFF14B8A6),
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF14B8A6).withOpacity(0.35),
+                          blurRadius: 20,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 54,
+                          height: 54,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.16),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.24),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.08),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            alignment: Alignment.center,
+                            children: [
+                              Icon(
+                                PhosphorIconsFill.sparkle,
+                                color: Colors.white,
+                                size: 29,
+                              ),
+                              Positioned(
+                                top: 10,
+                                right: 8,
+                                child: Container(
+                                  width: 15,
+                                  height: 15,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF99F6E4),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: const Color(0xFF0F6B61),
+                                      width: 1.2,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    PhosphorIconsFill.sparkle,
+                                    color: Color(0xFF0F6B61),
+                                    size: 8.5,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Consultar con DocYa IA',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0.1,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                'Síntomas, dudas, consejos · gratis',
+                                style: TextStyle(
+                                  color: Colors.white.withOpacity(0.72),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                    color: Colors.white.withOpacity(0.3)),
+                              ),
+                              child: const Text(
+                                '(gratis)',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: 0,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            const Icon(
+                              PhosphorIconsFill.arrowRight,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
 
               // Dirección guardada
               glassCard(
@@ -1288,110 +1786,112 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ),
 
-              const SizedBox(height: 24),
-              Column(
-                children: [
-                  _serviceButton(
-                    context,
-                    icon: PhosphorIconsFill.videoCamera,
-                    label: "Teleconsulta",
-                    color: const Color(0xFF6366F1),
-                    subtitle: "Atencion medica por videollamada",
-                    onTap: () {
-                      if ((_userId ?? '').isEmpty) {
-                        _mostrarSnackBar(
-                          context,
-                          "No pudimos identificar tu sesion",
-                          exito: false,
-                        );
-                        return;
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => TeleconsultaFormScreen(
-                            pacienteUuid: _userId!,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _serviceButton(
-                    context,
-                    icon: PhosphorIconsFill.syringe,
-                    label: "Enfermero",
-                    color: const Color(0xFF14B8A6),
-                    subtitle: "Cuidados y controles en tu domicilio",
-                    onTap: () {
-                      if (selectedLocation != null) {
+              if (DateTime.now().millisecondsSinceEpoch < 0) ...[
+                const SizedBox(height: 24),
+                Column(
+                  children: [
+                    _serviceButton(
+                      context,
+                      icon: PhosphorIconsFill.videoCamera,
+                      label: "Teleconsulta",
+                      color: const Color(0xFF6366F1),
+                      subtitle: "Atencion medica por videollamada",
+                      onTap: () {
+                        if ((_userId ?? '').isEmpty) {
+                          _mostrarSnackBar(
+                            context,
+                            "No pudimos identificar tu sesion",
+                            exito: false,
+                          );
+                          return;
+                        }
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => SolicitudEnfermeroScreen(
-                              direccion: direccionCtrl.text,
-                              ubicacion: selectedLocation!,
+                            builder: (_) => TeleconsultaFormScreen(
+                              pacienteUuid: _userId!,
                             ),
                           ),
                         );
-                      } else {
-                        _mostrarSnackBar(
-                            context, "Seleccioná una ubicación primero",
-                            exito: false);
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _serviceButton(
-                    context,
-                    icon: PhosphorIconsFill.pill,
-                    label: "Medicacion",
-                    color: const Color(0xFF0EA5E9),
-                    subtitle: "Recordatorios y seguimiento diario",
-                    onTap: () {
-                      if ((_userId ?? '').isEmpty) {
-                        _mostrarSnackBar(
-                          context,
-                          "No pudimos identificar tu sesion",
-                          exito: false,
-                        );
-                        return;
-                      }
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MedicacionScreen(
-                            pacienteUuid: _userId!,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  _serviceButton(
-                    context,
-                    icon: PhosphorIconsFill.warningCircle,
-                    label: "Emergencia",
-                    color: Colors.redAccent,
-                    gradient: const LinearGradient(
-                      colors: [Colors.redAccent, Colors.red],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
+                      },
                     ),
-                    onTap: () async {
-                      final Uri callUri = Uri(scheme: 'tel', path: '911');
-                      if (await canLaunchUrl(callUri)) {
-                        await launchUrl(callUri);
-                      } else {
-                        _mostrarSnackBar(
-                            context, "No se pudo iniciar la llamada",
-                            exito: false);
-                      }
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+                    const SizedBox(height: 12),
+                    _serviceButton(
+                      context,
+                      icon: PhosphorIconsFill.syringe,
+                      label: "Enfermero",
+                      color: const Color(0xFF14B8A6),
+                      subtitle: "Cuidados y controles en tu domicilio",
+                      onTap: () {
+                        if (selectedLocation != null) {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => SolicitudEnfermeroScreen(
+                                direccion: direccionCtrl.text,
+                                ubicacion: selectedLocation!,
+                              ),
+                            ),
+                          );
+                        } else {
+                          _mostrarSnackBar(
+                              context, "Seleccioná una ubicación primero",
+                              exito: false);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _serviceButton(
+                      context,
+                      icon: PhosphorIconsFill.pill,
+                      label: "Medicacion",
+                      color: const Color(0xFF0EA5E9),
+                      subtitle: "Recordatorios y seguimiento diario",
+                      onTap: () {
+                        if ((_userId ?? '').isEmpty) {
+                          _mostrarSnackBar(
+                            context,
+                            "No pudimos identificar tu sesion",
+                            exito: false,
+                          );
+                          return;
+                        }
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MedicacionScreen(
+                              pacienteUuid: _userId!,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _serviceButton(
+                      context,
+                      icon: PhosphorIconsFill.warningCircle,
+                      label: "Emergencia",
+                      color: Colors.redAccent,
+                      gradient: const LinearGradient(
+                        colors: [Colors.redAccent, Colors.red],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      onTap: () async {
+                        final Uri callUri = Uri(scheme: 'tel', path: '911');
+                        if (await canLaunchUrl(callUri)) {
+                          await launchUrl(callUri);
+                        } else {
+                          _mostrarSnackBar(
+                              context, "No se pudo iniciar la llamada",
+                              exito: false);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+              ],
 
               // Beneficios
               Row(
@@ -1588,6 +2088,71 @@ class _HomeScreenState extends State<HomeScreen>
                 style: TextStyle(
                   fontSize: 13,
                   color: isDark ? Colors.white60 : Colors.black54,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? const [
+                            Color(0xFF0C4F52),
+                            Color(0xFF10242B),
+                          ]
+                        : const [
+                            Color(0xFFE7FFFB),
+                            Color(0xFFF8FAFB),
+                          ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: accent.withValues(alpha: isDark ? 0.30 : 0.18),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: isDark ? 0.18 : 0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: const Icon(
+                        Icons.videocam_rounded,
+                        color: accent,
+                        size: 25,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Teleconsultas en todo el país',
+                            style: TextStyle(
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w900,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            'La atención online está disponible estés donde estés.',
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              height: 1.25,
+                              color: isDark ? Colors.white70 : Colors.black54,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -1878,6 +2443,7 @@ class _HomeScreenState extends State<HomeScreen>
           ),
           PerfilScreen(
             userId: _userId ?? "",
+            onComoFunciona: _mostrarModalComoFunciona,
           ),
         ],
       ),

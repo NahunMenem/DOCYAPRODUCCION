@@ -44,7 +44,7 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
   Timer? _countdownTimer;
 
   String estadoConsulta = "pendiente";
-  int _remainingSearchSeconds = 300;
+  int _elapsedSearchSeconds = 0;
 
   final String apiBase = "https://docya-railway-production.up.railway.app";
 
@@ -76,11 +76,14 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
     });
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted || _remainingSearchSeconds <= 0) return;
-      setState(() => _remainingSearchSeconds--);
+      if (!mounted) return;
+      setState(() => _elapsedSearchSeconds++);
     });
 
     _timeoutTimer = Timer(const Duration(minutes: 5), () async {
+      // La consulta queda publicada para profesionales cercanos; no la cancelamos
+      // automaticamente desde el telefono mientras el backend siga buscandola.
+      if (DateTime.now().millisecondsSinceEpoch > 0) return;
       _stopPolling();
 
       if (widget.consultaId != null) {
@@ -359,7 +362,7 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            "Tiempo restante: ${(_remainingSearchSeconds ~/ 60).toString().padLeft(1, '0')}:${(_remainingSearchSeconds % 60).toString().padLeft(2, '0')}",
+                            "Tiempo buscando: ${(_elapsedSearchSeconds ~/ 60).toString().padLeft(1, '0')}:${(_elapsedSearchSeconds % 60).toString().padLeft(2, '0')}",
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.75),
                               fontSize: 14,
