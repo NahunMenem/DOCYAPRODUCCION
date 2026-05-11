@@ -13,8 +13,13 @@ import 'soporte_screen.dart';
 
 class PerfilScreen extends StatefulWidget {
   final String userId;
+  final VoidCallback? onComoFunciona;
 
-  const PerfilScreen({super.key, required this.userId});
+  const PerfilScreen({
+    super.key,
+    required this.userId,
+    this.onComoFunciona,
+  });
 
   @override
   State<PerfilScreen> createState() => _PerfilScreenState();
@@ -674,6 +679,14 @@ class _PerfilScreenState extends State<PerfilScreen> {
                           ),
                         ),
                       ),
+                      if (widget.onComoFunciona != null)
+                        _tile(
+                          icon: Icons.help_rounded,
+                          title: "Como funciona DocYa",
+                          subtitle: "Ver guia paso a paso",
+                          accentColor: const Color(0xFF6366F1),
+                          onTap: widget.onComoFunciona,
+                        ),
                       _tile(
                         icon: Icons.support_agent_rounded,
                         title: "Soporte",

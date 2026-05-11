@@ -99,6 +99,7 @@ flutter:
     - assets/mp_logo_blanco.png
     - assets/logonegro.png
     - assets/icons/app_icon.png
+    - imagenes modal/
 
 
 
