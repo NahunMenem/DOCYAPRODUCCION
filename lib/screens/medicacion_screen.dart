@@ -248,18 +248,18 @@ class _MedicacionScreenState extends State<MedicacionScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Agregar medicación',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: _textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         'DocYa programará recordatorios automáticos con estos horarios.',
-                        style: TextStyle(color: Colors.white70),
+                        style: TextStyle(color: _textSecondary),
                       ),
                       const SizedBox(height: 16),
                       _sheetInput(
@@ -311,10 +311,10 @@ class _MedicacionScreenState extends State<MedicacionScreen> {
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          const Text(
+                          Text(
                             'Horarios',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: _textPrimary,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -511,18 +511,18 @@ class _MedicacionScreenState extends State<MedicacionScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Editar medicación',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: _textPrimary,
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
+                      Text(
                         'Actualiza los datos y recalcularemos las próximas tomas.',
-                        style: TextStyle(color: Colors.white70),
+                        style: TextStyle(color: _textSecondary),
                       ),
                       const SizedBox(height: 16),
                       _sheetInput(
@@ -574,10 +574,10 @@ class _MedicacionScreenState extends State<MedicacionScreen> {
                       const SizedBox(height: 16),
                       Row(
                         children: [
-                          const Text(
+                          Text(
                             'Horarios',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: _textPrimary,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
