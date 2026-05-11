@@ -1,17 +1,23 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+
+import '../globals.dart';
 
 class PaymentCheckoutBrowserScreen extends StatefulWidget {
   final Uri url;
   final String title;
+  final int? consultaId;
 
   const PaymentCheckoutBrowserScreen({
     super.key,
     required this.url,
     this.title = 'Pago seguro',
+    this.consultaId,
   });
 
   @override
@@ -23,21 +29,32 @@ class _PaymentCheckoutBrowserScreenState
     extends State<PaymentCheckoutBrowserScreen> {
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _linkSub;
+  Timer? _paymentPoller;
   bool _loading = true;
   bool _launchAttempted = false;
+  bool _completed = false;
   String? _error;
 
   @override
   void initState() {
     super.initState();
     _linkSub = _appLinks.uriLinkStream.listen(_handleIncomingLink);
+    _startPaymentPolling();
     WidgetsBinding.instance.addPostFrameCallback((_) => _launchBrowser());
   }
 
   @override
   void dispose() {
     _linkSub?.cancel();
+    _paymentPoller?.cancel();
     super.dispose();
+  }
+
+  void _startPaymentPolling() {
+    if (widget.consultaId == null) return;
+    _paymentPoller = Timer.periodic(const Duration(seconds: 2), (_) {
+      _checkBackendPaymentStatus();
+    });
   }
 
   Future<void> _launchBrowser() async {
@@ -75,16 +92,60 @@ class _PaymentCheckoutBrowserScreenState
     if (!isPaymentResult) return;
 
     final payload = <String, dynamic>{
-      'status': uri.queryParameters['status'] ?? _mapLegacyStatus(uri.host),
+      'status': _normalizeStatus(uri.queryParameters['status'], uri.host),
       'consulta_id': uri.queryParameters['consulta_id'],
       'payment_id': uri.queryParameters['payment_id'],
     };
 
-    if (!mounted) return;
-    Navigator.of(context).pop(payload);
+    _complete(payload);
   }
 
-  String _mapLegacyStatus(String host) {
+  Future<void> _checkBackendPaymentStatus() async {
+    if (_completed || widget.consultaId == null) return;
+
+    try {
+      final response = await http.get(
+        Uri.parse('$API_URL/consultas/${widget.consultaId}/estado'),
+      );
+      if (response.statusCode != 200) return;
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      final mpStatus = (data['mp_status'] ?? '').toString().toLowerCase();
+      final preauthorized = data['mp_preautorizado'] == true;
+      final paymentId = data['payment_id']?.toString();
+
+      if (preauthorized || _isApprovedStatus(mpStatus)) {
+        _complete({
+          'status': 'success',
+          'consulta_id': widget.consultaId.toString(),
+          'payment_id': paymentId,
+        });
+      }
+    } catch (_) {
+      // El navegador de pago sigue abierto; si falla un poll, probamos de nuevo.
+    }
+  }
+
+  bool _isApprovedStatus(String status) {
+    return status == 'success' ||
+        status == 'approved' ||
+        status == 'authorized' ||
+        status == 'preautorizado' ||
+        status == 'capturado' ||
+        status == 'captured';
+  }
+
+  String _normalizeStatus(String? rawStatus, String host) {
+    final status = (rawStatus ?? '').toLowerCase().trim();
+    if (_isApprovedStatus(status)) return 'success';
+    if (status == 'pending' || status == 'in_process') return 'pending';
+    if (status == 'cancelled' || status == 'cancelled_by_user') {
+      return 'cancelled';
+    }
+    if (status == 'failed' || status == 'failure' || status == 'rejected') {
+      return 'failed';
+    }
+
     switch (host) {
       case 'pago_exitoso':
         return 'success';
@@ -97,6 +158,14 @@ class _PaymentCheckoutBrowserScreenState
     }
   }
 
+  void _complete(Map<String, dynamic> payload) {
+    if (_completed || !mounted) return;
+    _completed = true;
+    _paymentPoller?.cancel();
+    unawaited(closeInAppWebView());
+    Navigator.of(context).pop(payload);
+  }
+
   void _retry() {
     setState(() {
       _loading = true;
@@ -107,7 +176,7 @@ class _PaymentCheckoutBrowserScreenState
   }
 
   void _cancel() {
-    Navigator.of(context).pop({'status': 'cancelled'});
+    _complete({'status': 'cancelled'});
   }
 
   @override

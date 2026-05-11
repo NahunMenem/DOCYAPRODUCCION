@@ -26,18 +26,21 @@ class TeleconsultaFormScreen extends StatefulWidget {
 
 class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
   // Colores fijos (iguales en ambos modos)
-  static const _primary  = Color(0xFF25D7C8);
+  static const _primary = Color(0xFF25D7C8);
   static const _secondary = Color(0xFF14B8A6);
-  static const _textDark  = Color(0xFF04232A);
-  static const _warning   = Color(0xFFFBBF24);
+  static const _textDark = Color(0xFF04232A);
+  static const _warning = Color(0xFFFBBF24);
 
   // Estado de tema — se actualiza en build()
   bool _isDark = true;
 
   // Colores que dependen del tema
-  Color get _bgBase   => _isDark ? const Color(0xFF071820) : const Color(0xFFEEFBF9);
-  Color get _textMain => _isDark ? const Color(0xFFD9ECF2) : const Color(0xFF0A2832);
-  Color get _textMuted => _isDark ? const Color(0xFF9FB6BD) : const Color(0xFF4A7A85);
+  Color get _bgBase =>
+      _isDark ? const Color(0xFF071820) : const Color(0xFFEEFBF9);
+  Color get _textMain =>
+      _isDark ? const Color(0xFFD9ECF2) : const Color(0xFF0A2832);
+  Color get _textMuted =>
+      _isDark ? const Color(0xFF9FB6BD) : const Color(0xFF4A7A85);
 
   final _motivoCtrl = TextEditingController();
   String _direccionGuardada = '';
@@ -222,8 +225,11 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
       _toast('No pudimos cargar el precio de la teleconsulta.');
       return;
     }
-    if (_motivoCtrl.text.trim().isEmpty || _direccionGuardada.isEmpty || !_consentimiento) {
-      _toast('Completá el motivo, cargá tu dirección y aceptá el consentimiento.');
+    if (_motivoCtrl.text.trim().isEmpty ||
+        _direccionGuardada.isEmpty ||
+        !_consentimiento) {
+      _toast(
+          'Completá el motivo, cargá tu dirección y aceptá el consentimiento.');
       return;
     }
 
@@ -237,7 +243,8 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
           'paciente_uuid': widget.pacienteUuid,
           'motivo': _motivoCtrl.text.trim(),
           'direccion': _direccionGuardada,
-          'lat': 0, 'lng': 0,
+          'lat': 0,
+          'lng': 0,
           'tipo': 'medico',
           'canal_atencion': 'teleconsulta',
         }),
@@ -262,7 +269,10 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
       );
       if (prefRes.statusCode != 200) {
         final err = jsonDecode(prefRes.body);
-        _toast((err['detail']?['message'] ?? err['message'] ?? 'Error al iniciar el pago').toString());
+        _toast((err['detail']?['message'] ??
+                err['message'] ??
+                'Error al iniciar el pago')
+            .toString());
         if (mounted) setState(() => _loading = false);
         return;
       }
@@ -283,13 +293,16 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
           builder: (_) => PaymentCheckoutBrowserScreen(
             title: 'Pagar con Mercado Pago',
             url: Uri.parse(initPoint),
+            consultaId: _consultaPreviaId,
           ),
         ),
       );
 
       final status = result?['status']?.toString() ?? 'cancelled';
       if (status != 'success') {
-        _toast(status == 'cancelled' ? 'Pago cancelado' : 'No se pudo completar el pago');
+        _toast(status == 'cancelled'
+            ? 'Pago cancelado'
+            : 'No se pudo completar el pago');
         if (mounted) setState(() => _loading = false);
         return;
       }
@@ -468,6 +481,7 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
               tipo: 'teleconsulta',
               motivo: motivoPago,
             ),
+            consultaId: _consultaPreviaId,
           ),
         ),
       );
@@ -1024,97 +1038,110 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
                 Expanded(
                   child: Text(
                     'Vas a ser redirigido a Mercado Pago para pagar con el saldo de tu cuenta. Si ningún médico acepta, el reintegro es casi instantáneo.',
-                    style: GoogleFonts.manrope(color: _textMuted, fontSize: 12.5, height: 1.4, fontWeight: FontWeight.w600),
+                    style: GoogleFonts.manrope(
+                        color: _textMuted,
+                        fontSize: 12.5,
+                        height: 1.4,
+                        fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
             ),
           ] else ...[
-          Row(
-            children: [
-              const Icon(
-                PhosphorIconsRegular.lockKey,
-                color: _primary,
-                size: 20,
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  'Pago con preautorizacion',
-                  style: GoogleFonts.manrope(
-                    color: _textMain,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
+            Row(
+              children: [
+                const Icon(
+                  PhosphorIconsRegular.lockKey,
+                  color: _primary,
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Pago con preautorizacion',
+                    style: GoogleFonts.manrope(
+                      color: _textMain,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _pagoInfoRow(
+                PhosphorIconsRegular.clockCountdown,
+                'No se cobra ahora',
+                'El monto queda reservado en tu tarjeta pero no debitado.'),
+            const SizedBox(height: 8),
+            _pagoInfoRow(
+                PhosphorIconsFill.checkCircle,
+                'Se cobra solo si un medico acepta',
+                'En el momento exacto que alguien acepta tu consulta.'),
+            const SizedBox(height: 8),
+            _pagoInfoRow(
+                PhosphorIconsRegular.arrowCounterClockwise,
+                'Si nadie acepta o cancelas',
+                'La reserva se libera sola en menos de 5 minutos. No perdes nada.'),
+            if (_loadingSavedMethods) ...[
+              const SizedBox(height: 12),
+              const LinearProgressIndicator(
+                minHeight: 3,
+                color: _primary,
+                backgroundColor: Colors.transparent,
+              ),
+            ] else if (_savedMethods.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _isDark
+                      ? Colors.white.withOpacity(0.05)
+                      : Colors.black.withOpacity(0.03),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: _isDark
+                        ? Colors.white.withOpacity(0.10)
+                        : Colors.black.withOpacity(0.07),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      hasReusable
+                          ? PhosphorIconsRegular.creditCard
+                          : PhosphorIconsRegular.warning,
+                      color: hasReusable ? _primary : _warning,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        selected == null
+                            ? 'Se pedira una tarjeta'
+                            : _savedCardLabel(selected),
+                        style: GoogleFonts.manrope(
+                          color: _textMain,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => setState(() => _selectedSavedMethod =
+                          _selectedSavedMethod == null
+                              ? _savedMethods.first
+                              : null),
+                      child: Text(
+                        selected == null ? 'Usar guardada' : 'Otra',
+                        style: GoogleFonts.manrope(fontWeight: FontWeight.w900),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 10),
-          _pagoInfoRow(PhosphorIconsRegular.clockCountdown, 'No se cobra ahora', 'El monto queda reservado en tu tarjeta pero no debitado.'),
-          const SizedBox(height: 8),
-          _pagoInfoRow(PhosphorIconsFill.checkCircle, 'Se cobra solo si un medico acepta', 'En el momento exacto que alguien acepta tu consulta.'),
-          const SizedBox(height: 8),
-          _pagoInfoRow(PhosphorIconsRegular.arrowCounterClockwise, 'Si nadie acepta o cancelas', 'La reserva se libera sola en menos de 5 minutos. No perdes nada.'),
-          if (_loadingSavedMethods) ...[
-            const SizedBox(height: 12),
-            const LinearProgressIndicator(
-              minHeight: 3,
-              color: _primary,
-              backgroundColor: Colors.transparent,
-            ),
-          ] else if (_savedMethods.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: _isDark
-                    ? Colors.white.withOpacity(0.05)
-                    : Colors.black.withOpacity(0.03),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: _isDark
-                      ? Colors.white.withOpacity(0.10)
-                      : Colors.black.withOpacity(0.07),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    hasReusable
-                        ? PhosphorIconsRegular.creditCard
-                        : PhosphorIconsRegular.warning,
-                    color: hasReusable ? _primary : _warning,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      selected == null
-                          ? 'Se pedira una tarjeta'
-                          : _savedCardLabel(selected),
-                      style: GoogleFonts.manrope(
-                        color: _textMain,
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => setState(() => _selectedSavedMethod =
-                        _selectedSavedMethod == null
-                            ? _savedMethods.first
-                            : null),
-                    child: Text(
-                      selected == null ? 'Usar guardada' : 'Otra',
-                      style: GoogleFonts.manrope(fontWeight: FontWeight.w900),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ], // cierre else tarjeta
+          ], // cierre else tarjeta
         ],
       ),
     );
@@ -1134,10 +1161,16 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
         decoration: BoxDecoration(
           color: selected
               ? _primary.withOpacity(0.14)
-              : (_isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03)),
+              : (_isDark
+                  ? Colors.white.withOpacity(0.04)
+                  : Colors.black.withOpacity(0.03)),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? _primary.withOpacity(0.55) : (_isDark ? Colors.white.withOpacity(0.09) : Colors.black.withOpacity(0.07)),
+            color: selected
+                ? _primary.withOpacity(0.55)
+                : (_isDark
+                    ? Colors.white.withOpacity(0.09)
+                    : Colors.black.withOpacity(0.07)),
             width: selected ? 1.4 : 1,
           ),
         ),
@@ -1313,7 +1346,9 @@ class _TeleconsultaFormScreenState extends State<TeleconsultaFormScreen> {
               ElevatedButton.icon(
                 onPressed: _loading || _cargandoDireccion || _cargandoTarifa
                     ? null
-                    : (_metodoPago == 'saldo_mp' ? _pagarConSaldoMp : _preautorizarYCrear),
+                    : (_metodoPago == 'saldo_mp'
+                        ? _pagarConSaldoMp
+                        : _preautorizarYCrear),
                 icon: _loading
                     ? const SizedBox(
                         width: 18,

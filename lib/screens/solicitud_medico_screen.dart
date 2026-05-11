@@ -434,6 +434,7 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
                   ? "Consulta médica DocYa"
                   : motivoCtrl.text.trim(),
             ),
+            consultaId: consultaPreviaId,
           ),
         ),
       );
@@ -1709,6 +1710,7 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
           builder: (_) => PaymentCheckoutBrowserScreen(
             title: 'Pagar con Mercado Pago',
             url: Uri.parse(initPoint),
+            consultaId: consultaPreviaId,
           ),
         ),
       );

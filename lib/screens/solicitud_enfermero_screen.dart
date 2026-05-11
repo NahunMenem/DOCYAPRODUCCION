@@ -460,6 +460,7 @@ class _SolicitudEnfermeroScreenState extends State<SolicitudEnfermeroScreen>
                   ? "Atención de enfermería DocYa"
                   : motivoCtrl.text.trim(),
             ),
+            consultaId: consultaPreviaId,
           ),
         ),
       );
@@ -726,6 +727,7 @@ class _SolicitudEnfermeroScreenState extends State<SolicitudEnfermeroScreen>
           builder: (_) => PaymentCheckoutBrowserScreen(
             title: 'Pagar con Mercado Pago',
             url: Uri.parse(initPoint),
+            consultaId: consultaPreviaId,
           ),
         ),
       );

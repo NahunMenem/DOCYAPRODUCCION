@@ -44,7 +44,8 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
   Timer? _countdownTimer;
 
   String estadoConsulta = "pendiente";
-  int _elapsedSearchSeconds = 0;
+  static const int _searchWindowSeconds = 5 * 60;
+  int _remainingSearchSeconds = _searchWindowSeconds;
 
   final String apiBase = "https://docya-railway-production.up.railway.app";
 
@@ -77,7 +78,9 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      setState(() => _elapsedSearchSeconds++);
+      if (_remainingSearchSeconds > 0) {
+        setState(() => _remainingSearchSeconds--);
+      }
     });
 
     _timeoutTimer = Timer(const Duration(minutes: 5), () async {
@@ -362,7 +365,7 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            "Tiempo buscando: ${(_elapsedSearchSeconds ~/ 60).toString().padLeft(1, '0')}:${(_elapsedSearchSeconds % 60).toString().padLeft(2, '0')}",
+                            "Tiempo restante: ${(_remainingSearchSeconds ~/ 60).toString().padLeft(1, '0')}:${(_remainingSearchSeconds % 60).toString().padLeft(2, '0')}",
                             style: TextStyle(
                               color: Colors.white.withOpacity(0.75),
                               fontSize: 14,
