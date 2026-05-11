@@ -12,7 +12,6 @@ import '../widgets/bottom_nav.dart';
 import 'perfil_screen.dart';
 import 'consultas_screen.dart';
 import 'medicacion_screen.dart';
-import 'recetas_screen.dart';
 import 'registrar_direccion_screen.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../widgets/noticias_carousel.dart';
@@ -23,6 +22,7 @@ import 'MedicoEnCaminoScreen.dart';
 import 'EnfermeroEnCaminoScreen.dart';
 import 'consulta_en_curso_screen.dart';
 import 'teleconsulta_form_screen.dart';
+import 'solicitar_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   final String? nombreUsuario;
@@ -44,7 +44,6 @@ class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   String? _nombreUsuario;
   String? _userId;
-  String? _userToken;
   bool cargando = true;
   bool tieneDireccion = false;
   bool _addressGateShown = false;
@@ -301,7 +300,6 @@ class _HomeScreenState extends State<HomeScreen>
     setState(() {
       _nombreUsuario = widget.nombreUsuario ?? prefs.getString("nombreUsuario");
       _userId = widget.userId ?? prefs.getString("userId");
-      _userToken = prefs.getString("auth_token");
     });
 
     if (_userId == null) {
@@ -2392,54 +2390,62 @@ class _HomeScreenState extends State<HomeScreen>
     return Scaffold(
       extendBody: true,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(kToolbarHeight),
-        child: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-            child: AppBar(
-              elevation: 0,
-              centerTitle: true,
-              backgroundColor: Theme.of(context).brightness == Brightness.dark
-                  ? const Color(0xFF04151C).withOpacity(0.75)
-                  : Colors.white.withOpacity(0.72),
-              surfaceTintColor: Colors.transparent,
-              title: Image.asset(
-                Theme.of(context).brightness == Brightness.dark
-                    ? "assets/logoblanco.png"
-                    : "assets/logonegro.png",
-                height: 34,
-              ),
-              actions: [
-                IconButton(
-                  icon: Icon(
-                    Theme.of(context).brightness == Brightness.dark
-                        ? PhosphorIconsFill.sunDim
-                        : PhosphorIconsFill.moonStars,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white70
-                        : Colors.black54,
+      appBar: _selectedIndex == 3
+          ? null
+          : PreferredSize(
+              preferredSize: const Size.fromHeight(kToolbarHeight),
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+                  child: AppBar(
+                    elevation: 0,
+                    centerTitle: true,
+                    backgroundColor:
+                        Theme.of(context).brightness == Brightness.dark
+                            ? const Color(0xFF04151C).withOpacity(0.75)
+                            : Colors.white.withOpacity(0.72),
+                    surfaceTintColor: Colors.transparent,
+                    title: Image.asset(
+                      Theme.of(context).brightness == Brightness.dark
+                          ? "assets/logoblanco.png"
+                          : "assets/logonegro.png",
+                      height: 34,
+                    ),
+                    actions: [
+                      IconButton(
+                        icon: Icon(
+                          Theme.of(context).brightness == Brightness.dark
+                              ? PhosphorIconsFill.sunDim
+                              : PhosphorIconsFill.moonStars,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white70
+                              : Colors.black54,
+                        ),
+                        onPressed: () {
+                          widget.onToggleTheme();
+                          setState(() {});
+                        },
+                      ),
+                    ],
                   ),
-                  onPressed: () {
-                    widget.onToggleTheme();
-                    setState(() {});
-                  },
                 ),
-              ],
+              ),
             ),
-          ),
-        ),
-      ),
       body: IndexedStack(
         index: _selectedIndex,
         children: [
           _vistaHomePrincipal(),
-          RecetasScreen(
-            pacienteUuid: _userId ?? "",
-            token: _userToken ?? "",
-          ),
           ConsultasScreen(
             pacienteUuid: _userId ?? "",
+          ),
+          SolicitarScreen(
+            onMedico: _abrirMedicoDomicilio,
+            onEnfermero: _abrirEnfermero,
+            onTeleconsulta: _abrirTeleconsulta,
+          ),
+          ChatIAScreen(
+            direccion: tieneDireccion ? direccionCtrl.text : null,
+            ubicacion: selectedLocation,
           ),
           PerfilScreen(
             userId: _userId ?? "",

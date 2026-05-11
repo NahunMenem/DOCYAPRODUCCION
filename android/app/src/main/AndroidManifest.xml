@@ -70,8 +70,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Deep link MercadoPago -->
-            <intent-filter android:autoVerify="true">
+            <!-- Deep links MercadoPago -->
+            <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
@@ -79,6 +79,15 @@
                 <data
                     android:scheme="docya"
                     android:host="pago_exitoso" />
+                <data
+                    android:scheme="docya"
+                    android:host="pago_fallido" />
+                <data
+                    android:scheme="docya"
+                    android:host="pago_pendiente" />
+                <data
+                    android:scheme="docya"
+                    android:host="payment_result" />
             </intent-filter>
 
         </activity>

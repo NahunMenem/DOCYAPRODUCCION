@@ -36,6 +36,30 @@ class SolicitudMedicoScreen extends StatefulWidget {
   State<SolicitudMedicoScreen> createState() => _SolicitudMedicoScreenState();
 }
 
+class _MedicalService {
+  final String title;
+  final String badge;
+  final String subtitle;
+  final String duration;
+  final IconData icon;
+  final Color color;
+  final List<String> includes;
+  final List<String> solves;
+  final List<String> notes;
+
+  const _MedicalService({
+    required this.title,
+    required this.badge,
+    required this.subtitle,
+    required this.duration,
+    required this.icon,
+    required this.color,
+    required this.includes,
+    required this.solves,
+    required this.notes,
+  });
+}
+
 class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
     with WidgetsBindingObserver {
   final motivoCtrl = TextEditingController();
@@ -58,6 +82,42 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
   int? _precioActual;
   String _descripcionPrecio = "";
   bool _cargandoTarifa = true;
+  int? _selectedServiceIndex;
+  String? _autoMotivoServicio;
+
+  static const List<_MedicalService> _services = [
+    _MedicalService(
+      title: "Clinica medica",
+      badge: "Consulta a domicilio",
+      subtitle:
+          "Consulta medica general para adultos. Evaluacion, diagnostico y tratamiento de sintomas comunes.",
+      duration: "30-45 min",
+      icon: Icons.medical_services_rounded,
+      color: Color(0xFF0F9B91),
+      includes: [
+        "Evaluacion medica completa",
+        "Diagnostico y plan de tratamiento",
+        "Receta medica digital",
+        "Informe en tu historial clinico",
+        "Seguimiento por chat (48 hs)",
+      ],
+      solves: [
+        "Fiebre, gripe y resfrios",
+        "Dolores de cabeza, garganta, estomago o musculares",
+        "Malestar general y cansancio",
+        "Alergias y problemas respiratorios",
+        "Control y seguimiento de enfermedades cronicas",
+        "Prescripcion y renovacion de medicacion",
+        "Certificado medico",
+        "Y mucho mas...",
+      ],
+      notes: [
+        "La consulta es a domicilio en el dia.",
+        "Si el medico considera necesario estudios o practicas, te lo indicara.",
+        "En caso de urgencia, llama al 911.",
+      ],
+    ),
+  ];
 
   int _parseMonto(dynamic value) {
     if (value is int) return value;
@@ -155,6 +215,7 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    motivoCtrl.dispose();
     super.dispose();
   }
 
@@ -542,6 +603,684 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
     );
   }
 
+  String _formatPrecio(int? precio) {
+    if (_cargandoTarifa) return "...";
+    if (precio == null) return "Consultar";
+    final value = precio.toString().replaceAllMapped(
+          RegExp(r'\B(?=(\d{3})+(?!\d))'),
+          (_) => '.',
+        );
+    return "\$$value";
+  }
+
+  Color _pageBg(bool isDark) =>
+      isDark ? const Color(0xFF061D24) : const Color(0xFFF8FBFD);
+
+  Color _surface(bool isDark) =>
+      isDark ? const Color(0xFF0D2B34) : Colors.white;
+
+  Color _textMain(bool isDark) =>
+      isDark ? Colors.white : const Color(0xFF071238);
+
+  Color _textSoft(bool isDark) =>
+      isDark ? Colors.white70 : const Color(0xFF536078);
+
+  void _selectService(int index) {
+    final service = _services[index];
+    setState(() {
+      _selectedServiceIndex = index;
+      if (motivoCtrl.text.trim().isEmpty ||
+          motivoCtrl.text.trim() == _autoMotivoServicio) {
+        motivoCtrl.text = service.title;
+        _autoMotivoServicio = service.title;
+      }
+    });
+  }
+
+  Widget _logoHeader(bool isDark) {
+    return Row(
+      children: [
+        Container(
+          width: 46,
+          height: 46,
+          decoration: BoxDecoration(
+            color: _surface(isDark),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(isDark ? 0.18 : 0.06),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+            color: _textMain(isDark),
+            onPressed: () {
+              if (_selectedServiceIndex != null) {
+                setState(() => _selectedServiceIndex = null);
+              } else {
+                Navigator.pop(context);
+              }
+            },
+          ),
+        ),
+        const Spacer(),
+        Image.asset(
+          isDark ? "assets/logoblanco.png" : "assets/logonegro.png",
+          height: 48,
+        ),
+        const Spacer(),
+        const SizedBox(width: 46),
+      ],
+    );
+  }
+
+  Widget _doctorAvatar({
+    required double size,
+    required bool isDark,
+    required Color color,
+  }) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color.withOpacity(isDark ? 0.20 : 0.12),
+      ),
+      child: Icon(Icons.person_rounded, size: size * 0.46, color: color),
+    );
+  }
+
+  Widget _heroCard(bool isDark) {
+    final service = _services.first;
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF0EA896), Color(0xFF087C75)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(26),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0EA896).withOpacity(0.22),
+            blurRadius: 24,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              _doctorAvatar(size: 104, isDark: false, color: Colors.white),
+              const SizedBox(width: 18),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Atencion medica",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        height: 1.05,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      "Medicos a domicilio cuando mas lo necesitas.",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              const Icon(Icons.verified_user_rounded,
+                  color: Colors.white, size: 30),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  "Profesionales\nverificados",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    height: 1.25,
+                  ),
+                ),
+              ),
+              Container(width: 1, height: 34, color: Colors.white38),
+              const SizedBox(width: 18),
+              const Icon(Icons.speed_rounded, color: Colors.white, size: 30),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  "Atencion rapida\ny segura",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    height: 1.25,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(
+            service.badge,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _serviceTile(
+    _MedicalService service,
+    int index,
+    int? precio,
+    bool isDark,
+  ) {
+    return InkWell(
+      onTap: () => _selectService(index),
+      borderRadius: BorderRadius.circular(22),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: _surface(isDark),
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(color: const Color(0xFF0F9B91), width: 1.4),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.18 : 0.05),
+              blurRadius: 18,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            _doctorAvatar(size: 78, isDark: isDark, color: service.color),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    service.title,
+                    style: TextStyle(
+                      color: _textMain(isDark),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    service.subtitle,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: _textSoft(isDark),
+                      fontSize: 13.5,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Icon(Icons.schedule_rounded,
+                          color: _textSoft(isDark), size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        service.duration,
+                        style: TextStyle(
+                          color: _textMain(isDark),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        _formatPrecio(precio),
+                        style: const TextStyle(
+                          color: Color(0xFF07877E),
+                          fontWeight: FontWeight.w900,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right_rounded, color: _textMain(isDark)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _solvesCard(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: _surface(isDark),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? Colors.white10 : const Color(0xFFE5EAF1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "¿Que podes resolver con una consulta?",
+            style: TextStyle(
+              color: _textMain(isDark),
+              fontWeight: FontWeight.w900,
+              fontSize: 16,
+            ),
+          ),
+          const SizedBox(height: 14),
+          ..._services.first.solves.map(
+            (item) => Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.check_circle_outline_rounded,
+                      color: Color(0xFF0D9488), size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      item,
+                      style: TextStyle(
+                        color: _textMain(isDark),
+                        fontSize: 14,
+                        height: 1.25,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _verifiedStrip(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF18B7AD).withOpacity(isDark ? 0.12 : 0.08),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.workspace_premium_rounded,
+              color: Color(0xFF08786F), size: 30),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              "Todos nuestros medicos estan matriculados y verificados por DocYa.",
+              style: TextStyle(
+                color: _textMain(isDark),
+                fontWeight: FontWeight.w700,
+                height: 1.3,
+              ),
+            ),
+          ),
+          Icon(Icons.chevron_right_rounded, color: _textMain(isDark)),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailHeader(_MedicalService service, int? precio, bool isDark) {
+    return Column(
+      children: [
+        _doctorAvatar(size: 190, isDark: isDark, color: service.color),
+        const SizedBox(height: 22),
+        Text(
+          service.title,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: _textMain(isDark),
+            fontSize: 29,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: service.color.withOpacity(0.12),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Text(
+            service.badge,
+            style: TextStyle(
+              color: service.color,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+        const SizedBox(height: 18),
+        Text(
+          service.subtitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: _textMain(isDark),
+            fontSize: 16,
+            height: 1.45,
+          ),
+        ),
+        const SizedBox(height: 24),
+        _detailInfoCard(service, precio, isDark),
+      ],
+    );
+  }
+
+  Widget _detailInfoCard(_MedicalService service, int? precio, bool isDark) {
+    final rows = [
+      (Icons.schedule_rounded, "Duracion estimada", service.duration),
+      (Icons.sell_outlined, "Precio del servicio", _formatPrecio(precio)),
+      (Icons.person_outline_rounded, "Profesional", "Medico/a matriculado/a"),
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 18),
+      decoration: BoxDecoration(
+        color: _surface(isDark),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: isDark ? Colors.white10 : const Color(0xFFE5EAF1),
+        ),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < rows.length; i++)
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: i == rows.length - 1
+                      ? BorderSide.none
+                      : BorderSide(
+                          color:
+                              isDark ? Colors.white10 : const Color(0xFFE8EDF3),
+                        ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(rows[i].$1, color: _textMain(isDark), size: 28),
+                  const SizedBox(width: 18),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          rows[i].$2,
+                          style: TextStyle(
+                            color: _textSoft(isDark),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          rows[i].$3,
+                          style: TextStyle(
+                            color: _textMain(isDark),
+                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _includedSection(_MedicalService service, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "¿Que incluye?",
+          style: TextStyle(
+            color: _textMain(isDark),
+            fontSize: 17,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...service.includes.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: Row(
+              children: [
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFF0D9488),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.check, color: Colors.white, size: 15),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    item,
+                    style: TextStyle(
+                      color: _textMain(isDark),
+                      fontSize: 14.5,
+                      height: 1.25,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _notesCard(_MedicalService service, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color:
+            isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFEFFAF7),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+            color: isDark ? Colors.white10 : const Color(0xFFDCEFEA)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_rounded, color: Color(0xFF0D9488)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Tene en cuenta",
+                  style: TextStyle(
+                    color: _textMain(isDark),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...service.notes.map(
+                  (note) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text(
+                      "• $note",
+                      style: TextStyle(
+                        color: _textMain(isDark),
+                        height: 1.35,
+                        fontSize: 13.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _howItWorks(bool isDark) {
+    final steps = [
+      (Icons.calendar_month_rounded, "Solicitas\nla consulta"),
+      (Icons.person_search_rounded, "Asignamos\nal medico"),
+      (Icons.location_on_outlined, "Te atiende\nen tu domicilio"),
+      (Icons.payment_rounded, "Pagas\ndesde la app"),
+    ];
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final step in steps) ...[
+          Expanded(
+            child: Column(
+              children: [
+                Container(
+                  width: 58,
+                  height: 58,
+                  decoration: BoxDecoration(
+                    color: _surface(isDark),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? Colors.white10 : const Color(0xFFE5EAF1),
+                    ),
+                  ),
+                  child: Icon(step.$1, color: const Color(0xFF0E5B8E)),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  step.$2,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: _textMain(isDark),
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (step != steps.last)
+            Padding(
+              padding: const EdgeInsets.only(top: 18),
+              child: Icon(Icons.arrow_forward_rounded,
+                  color: const Color(0xFF0D9488).withOpacity(0.8), size: 18),
+            ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildServiceListPage(bool isDark, int? precio) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 42),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _logoHeader(isDark),
+          const SizedBox(height: 28),
+          _heroCard(isDark),
+          const SizedBox(height: 26),
+          Text(
+            "Elegi el tipo de consulta",
+            style: TextStyle(
+              color: _textMain(isDark),
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 14),
+          _serviceTile(_services.first, 0, precio, isDark),
+          const SizedBox(height: 26),
+          _verifiedStrip(isDark),
+          const SizedBox(height: 20),
+          _solvesCard(isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceDetailPage(bool isDark, int? precio) {
+    final service = _services[_selectedServiceIndex ?? 0];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 18, 20, 80),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _logoHeader(isDark),
+          const SizedBox(height: 24),
+          _detailHeader(service, precio, isDark),
+          const SizedBox(height: 26),
+          _includedSection(service, isDark),
+          const SizedBox(height: 18),
+          _notesCard(service, isDark),
+          const SizedBox(height: 24),
+          Text(
+            "¿Como funciona?",
+            style: TextStyle(
+              color: _textMain(isDark),
+              fontWeight: FontWeight.w900,
+              fontSize: 17,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _howItWorks(isDark),
+          const SizedBox(height: 22),
+          _glassCard(_cardMotivo(isDark)),
+          _glassCard(_cardPagoDigital(precio, isDark)),
+          if (metodoPago == "tarjeta") _botonMP(),
+          if (metodoPago == "saldo_mp") _botonSaldoMp(),
+          _glassCard(_cardEfectivo(isDark)),
+          if (metodoPago == "efectivo") ...[
+            const SizedBox(height: 2),
+            _botonSolicitar(isDark),
+          ],
+        ],
+      ),
+    );
+  }
+
   // ============================================================
   // UI COMPLETA (NO TOCADA)
   // ============================================================
@@ -551,16 +1290,7 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
     final precio = _precioActual;
 
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        centerTitle: true,
-        title: Image.asset(
-          isDark ? "assets/logoblanco.png" : "assets/logonegro.png",
-          height: 42,
-        ),
-      ),
+      backgroundColor: _pageBg(isDark),
       body: Stack(
         children: [
           Container(
@@ -628,21 +1358,9 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
             ),
           ],
           SafeArea(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 80),
-              child: Column(
-                children: [
-                  _glassCard(_headerMedico(isDark)),
-                  _glassCard(_cardMotivo(isDark)),
-                  _glassCard(_cardPagoDigital(precio, isDark)),
-                  if (metodoPago == "tarjeta") _botonMP(),
-                  if (metodoPago == "saldo_mp") _botonSaldoMp(),
-                  _glassCard(_cardEfectivo(isDark)),
-                  const SizedBox(height: 20),
-                  if (metodoPago == "efectivo") _botonSolicitar(isDark),
-                ],
-              ),
-            ),
+            child: _selectedServiceIndex == null
+                ? _buildServiceListPage(isDark, precio)
+                : _buildServiceDetailPage(isDark, precio),
           ),
         ],
       ),
@@ -841,12 +1559,21 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
 
   Widget _saldoMpInfoRows(bool isDark) {
     final items = [
-      (Icons.hourglass_empty_rounded, 'No se cobra ahora',
-          'El monto queda reservado en tu cuenta MP pero no debitado.'),
-      (Icons.check_circle_outline_rounded, 'Se cobra solo si un medico acepta',
-          'En el momento exacto que alguien acepta tu consulta.'),
-      (Icons.replay_rounded, 'Si nadie acepta o cancelas',
-          'El reintegro es casi instantaneo — vuelve a tu saldo MP en minutos.'),
+      (
+        Icons.hourglass_empty_rounded,
+        'No se cobra ahora',
+        'El monto queda reservado en tu cuenta MP pero no debitado.'
+      ),
+      (
+        Icons.check_circle_outline_rounded,
+        'Se cobra solo si un medico acepta',
+        'En el momento exacto que alguien acepta tu consulta.'
+      ),
+      (
+        Icons.replay_rounded,
+        'Si nadie acepta o cancelas',
+        'El reintegro es casi instantaneo — vuelve a tu saldo MP en minutos.'
+      ),
     ];
     return Column(
       children: items.map((item) {
@@ -856,8 +1583,7 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(icon, size: 18,
-                  color: const Color(0xFF00BCFF)),
+              Icon(icon, size: 18, color: const Color(0xFF00BCFF)),
               const SizedBox(width: 10),
               Expanded(
                 child: RichText(
@@ -895,16 +1621,20 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
         onPressed: pagando ? null : _pagarConSaldoMp,
         icon: pagando
             ? const SizedBox(
-                width: 18, height: 18,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white))
             : const Icon(Icons.account_balance_wallet_rounded),
-        label: Text(pagando ? 'Procesando...' : 'Pagar con saldo MP y solicitar'),
+        label:
+            Text(pagando ? 'Procesando...' : 'Pagar con saldo MP y solicitar'),
         style: ElevatedButton.styleFrom(
           minimumSize: const Size(double.infinity, 54),
           backgroundColor: const Color(0xFF00BCFF),
           foregroundColor: Colors.white,
           textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           elevation: 0,
         ),
       ),
@@ -936,6 +1666,12 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
         return;
       }
       consultaPreviaId = jsonDecode(previa.body)['consulta_id'];
+      final precio = _precioActual;
+      if (precio == null) {
+        _toast('No se pudo cargar el precio.');
+        setState(() => pagando = false);
+        return;
+      }
 
       final prefRes = await http.post(
         Uri.parse('$API_URL/pagos/saldo-mp/preferencia'),
@@ -943,7 +1679,7 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
         body: jsonEncode({
           'paciente_uuid': pacienteUuidGlobal,
           'consulta_id': consultaPreviaId,
-          'monto': (_precioActual ?? 0).toDouble(),
+          'monto': precio.toDouble(),
           'motivo': motivoCtrl.text.trim().isEmpty
               ? 'Consulta médica DocYa'
               : motivoCtrl.text.trim(),
@@ -951,11 +1687,15 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
       );
       if (prefRes.statusCode != 200) {
         final err = jsonDecode(prefRes.body);
-        _toast((err['detail']?['message'] ?? err['message'] ?? 'Error al iniciar el pago').toString());
+        _toast((err['detail']?['message'] ??
+                err['message'] ??
+                'Error al iniciar el pago')
+            .toString());
         setState(() => pagando = false);
         return;
       }
-      final initPoint = jsonDecode(prefRes.body)['init_point']?.toString() ?? '';
+      final initPoint =
+          jsonDecode(prefRes.body)['init_point']?.toString() ?? '';
       if (initPoint.isEmpty) {
         _toast('No se pudo obtener la URL de pago.');
         setState(() => pagando = false);
@@ -975,7 +1715,9 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
 
       final status = result?['status']?.toString() ?? 'cancelled';
       if (status != 'success') {
-        _toast(status == 'cancelled' ? 'Pago cancelado' : 'No se pudo completar el pago');
+        _toast(status == 'cancelled'
+            ? 'Pago cancelado'
+            : 'No se pudo completar el pago');
         setState(() => pagando = false);
         return;
       }
@@ -1089,26 +1831,52 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
         _precioCard(precio, isDark),
         const SizedBox(height: 16),
         Row(children: [
-          Expanded(child: _paymentTab(value: "tarjeta", icon: Icons.credit_card_rounded, label: "Tarjeta de crédito", isDark: isDark)),
+          Expanded(
+              child: _paymentTab(
+                  value: "tarjeta",
+                  icon: Icons.credit_card_rounded,
+                  label: "Tarjeta de crédito",
+                  isDark: isDark)),
           const SizedBox(width: 8),
-          Expanded(child: _paymentTab(value: "saldo_mp", icon: Icons.account_balance_wallet_rounded, label: "Saldo Mercado Pago", isDark: isDark)),
+          Expanded(
+              child: _paymentTab(
+                  value: "saldo_mp",
+                  icon: Icons.account_balance_wallet_rounded,
+                  label: "Saldo Mercado Pago",
+                  isDark: isDark)),
         ]),
         const SizedBox(height: 16),
         Row(children: [
           Icon(Icons.lock_outline_rounded, color: primary, size: 18),
           const SizedBox(width: 8),
           Text("Pago con preautorizacion",
-              style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontSize: 15, fontWeight: FontWeight.w900)),
+              style: TextStyle(
+                  color: isDark ? Colors.white : Colors.black87,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w900)),
         ]),
         const SizedBox(height: 12),
-        _pagoInfoRow(Icons.hourglass_empty_rounded, "No se cobra ahora",
-            esSaldoMp ? "El monto queda reservado en tu saldo MP pero no debitado." : "El monto queda reservado en tu tarjeta pero no debitado.", isDark),
+        _pagoInfoRow(
+            Icons.hourglass_empty_rounded,
+            "No se cobra ahora",
+            esSaldoMp
+                ? "Con saldo MP se paga al confirmar y se reintegra si nadie acepta."
+                : "El monto queda reservado en tu tarjeta pero no debitado.",
+            isDark),
         const SizedBox(height: 8),
-        _pagoInfoRow(Icons.check_circle_outline_rounded, "Se cobra solo si un médico acepta",
-            "En el momento exacto que alguien acepta tu consulta.", isDark),
+        _pagoInfoRow(
+            Icons.check_circle_outline_rounded,
+            "Se cobra solo si un médico acepta",
+            "En el momento exacto que alguien acepta tu consulta.",
+            isDark),
         const SizedBox(height: 8),
-        _pagoInfoRow(Icons.replay_rounded, "Si nadie acepta o cancelas",
-            esSaldoMp ? "El reintegro es casi instantaneo — vuelve a tu saldo MP en minutos." : "La reserva se libera sola en menos de 5 minutos. No perdes nada.", isDark),
+        _pagoInfoRow(
+            Icons.replay_rounded,
+            "Si nadie acepta o cancelas",
+            esSaldoMp
+                ? "El reintegro es casi instantaneo — vuelve a tu saldo MP en minutos."
+                : "La reserva se libera sola en menos de 5 minutos. No perdes nada.",
+            isDark),
         if (metodoPago == "tarjeta") ...[
           const SizedBox(height: 16),
           _savedCardsSection(isDark),
@@ -1125,22 +1893,36 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
       child: Row(
         children: [
           Container(
-            width: 44, height: 44,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
-              color: selected ? primary.withOpacity(0.14) : (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.03)),
+              color: selected
+                  ? primary.withOpacity(0.14)
+                  : (isDark
+                      ? Colors.white.withOpacity(0.05)
+                      : Colors.black.withOpacity(0.03)),
               shape: BoxShape.circle,
             ),
             child: Icon(Icons.attach_money_rounded,
-                color: selected ? primary : (isDark ? Colors.white54 : Colors.black45)),
+                color: selected
+                    ? primary
+                    : (isDark ? Colors.white54 : Colors.black45)),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text("Efectivo / Transferencia",
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w700, fontSize: 14)),
+                  style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14)),
               const SizedBox(height: 2),
               Text("Pago directo al médico cuando llega o por transferencia.",
-                  style: TextStyle(color: isDark ? Colors.white54 : Colors.black45, fontSize: 12.5, height: 1.3)),
+                  style: TextStyle(
+                      color: isDark ? Colors.white54 : Colors.black45,
+                      fontSize: 12.5,
+                      height: 1.3)),
             ]),
           ),
           Radio<String>(
@@ -1154,7 +1936,11 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
     );
   }
 
-  Widget _paymentTab({required String value, required IconData icon, required String label, required bool isDark}) {
+  Widget _paymentTab(
+      {required String value,
+      required IconData icon,
+      required String label,
+      required bool isDark}) {
     final selected = metodoPago == value;
     final primary = Theme.of(context).colorScheme.primary;
     return GestureDetector(
@@ -1163,22 +1949,38 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
         decoration: BoxDecoration(
-          color: selected ? primary.withOpacity(0.14) : (isDark ? Colors.white.withOpacity(0.04) : Colors.black.withOpacity(0.03)),
+          color: selected
+              ? primary.withOpacity(0.14)
+              : (isDark
+                  ? Colors.white.withOpacity(0.04)
+                  : Colors.black.withOpacity(0.03)),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? primary.withOpacity(0.55) : (isDark ? Colors.white.withOpacity(0.09) : Colors.black.withOpacity(0.07)),
+            color: selected
+                ? primary.withOpacity(0.55)
+                : (isDark
+                    ? Colors.white.withOpacity(0.09)
+                    : Colors.black.withOpacity(0.07)),
             width: selected ? 1.4 : 1,
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 15, color: selected ? primary : (isDark ? Colors.white54 : Colors.black45)),
+            Icon(icon,
+                size: 15,
+                color: selected
+                    ? primary
+                    : (isDark ? Colors.white54 : Colors.black45)),
             const SizedBox(width: 6),
-            Flexible(child: Text(label,
+            Flexible(
+                child: Text(
+              label,
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: selected ? primary : (isDark ? Colors.white54 : Colors.black45),
+                color: selected
+                    ? primary
+                    : (isDark ? Colors.white54 : Colors.black45),
                 fontSize: 11.5,
                 fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
                 height: 1.2,
@@ -1190,7 +1992,8 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
     );
   }
 
-  Widget _pagoInfoRow(IconData icon, String titulo, String detalle, bool isDark) {
+  Widget _pagoInfoRow(
+      IconData icon, String titulo, String detalle, bool isDark) {
     final primary = Theme.of(context).colorScheme.primary;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1200,10 +2003,18 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
         Expanded(
           child: RichText(
             text: TextSpan(children: [
-              TextSpan(text: '$titulo. ',
-                  style: TextStyle(color: isDark ? Colors.white : Colors.black87, fontWeight: FontWeight.w800, fontSize: 12.5)),
-              TextSpan(text: detalle,
-                  style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 12.5, height: 1.35)),
+              TextSpan(
+                  text: '$titulo. ',
+                  style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5)),
+              TextSpan(
+                  text: detalle,
+                  style: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.black54,
+                      fontSize: 12.5,
+                      height: 1.35)),
             ]),
           ),
         ),
