@@ -28,6 +28,7 @@ class _TeleconsultaRoomScreenState extends State<TeleconsultaRoomScreen> {
 
   late final WebViewController _controller;
   bool _loading = true;
+  bool _showBanner = false;
 
   @override
   void initState() {
@@ -37,7 +38,13 @@ class _TeleconsultaRoomScreenState extends State<TeleconsultaRoomScreen> {
       ..setNavigationDelegate(
         NavigationDelegate(
           onPageFinished: (_) {
-            if (mounted) setState(() => _loading = false);
+            if (mounted) setState(() {
+              _loading = false;
+              _showBanner = true;
+            });
+            Future.delayed(const Duration(seconds: 7), () {
+              if (mounted) setState(() => _showBanner = false);
+            });
           },
         ),
       );
@@ -118,6 +125,81 @@ class _TeleconsultaRoomScreenState extends State<TeleconsultaRoomScreen> {
         false;
   }
 
+  Widget _infoBanner() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0B2730).withOpacity(0.96),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: _primary.withOpacity(0.35),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.35),
+            blurRadius: 24,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: _primary.withOpacity(0.16),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(
+              PhosphorIconsFill.files,
+              color: _primary,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Tus documentos quedan guardados',
+                  style: GoogleFonts.manrope(
+                    color: _textMain,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w900,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  'Si el médico emite una receta o certificado durante esta consulta, los encontrás en tu perfil bajo "Mis documentos" al instante.',
+                  style: GoogleFonts.manrope(
+                    color: const Color(0xFF9FB6BD),
+                    fontSize: 12.5,
+                    height: 1.4,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          GestureDetector(
+            onTap: () => setState(() => _showBanner = false),
+            child: const Icon(
+              PhosphorIconsRegular.x,
+              color: Color(0xFF9FB6BD),
+              size: 18,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -156,6 +238,14 @@ class _TeleconsultaRoomScreenState extends State<TeleconsultaRoomScreen> {
                     ),
                   ),
                 ),
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 380),
+                curve: Curves.easeOutCubic,
+                bottom: _showBanner ? 16 : -160,
+                left: 16,
+                right: 16,
+                child: _infoBanner(),
+              ),
             ],
           ),
         ),
