@@ -8,17 +8,18 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../globals.dart';
-import 'filtro_medico_screen.dart';
 import 'solicitud_medico_screen.dart';
 
 class ChatIAScreen extends StatefulWidget {
   final String? direccion;
   final LatLng? ubicacion;
+  final VoidCallback? onBackToHome;
 
   const ChatIAScreen({
     super.key,
     this.direccion,
     this.ubicacion,
+    this.onBackToHome,
   });
 
   @override
@@ -181,6 +182,21 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(text)),
     );
+  }
+
+  void _volver() {
+    if (widget.onBackToHome != null) {
+      widget.onBackToHome!();
+      return;
+    }
+
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+
+    navigator.pushNamedAndRemoveUntil('/home', (route) => false);
   }
 
   Widget _buildBurbuja(Map<String, String> msg) {
@@ -463,12 +479,52 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
         backgroundColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(PhosphorIconsFill.arrowLeft),
-          onPressed: () => Navigator.pop(context),
+          onPressed: _volver,
+        ),
+        title: Row(
+          children: [
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: const Color(0xFF14B8A6),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                PhosphorIconsFill.sparkle,
+                color: Colors.white,
+                size: 17,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'DocYa IA',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: isDark ? Colors.white : const Color(0xFF092F37),
+                  ),
+                ),
+                Text(
+                  'Orientación inicial de síntomas',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark
+                        ? Colors.white60
+                        : const Color(0xFF28515B),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
       body: Column(
         children: [
-          _buildHeaderCard(),
           Container(
             margin: const EdgeInsets.fromLTRB(16, 0, 16, 8),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -511,7 +567,9 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
             ),
           ),
           if (_recomiendaMedico) _buildBotonSolicitarMedico(),
-          Container(
+          SafeArea(
+            top: false,
+            child: Container(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
             decoration: BoxDecoration(
               color: isDark
@@ -577,6 +635,7 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
                 ),
               ],
             ),
+          ),
           ),
         ],
       ),
