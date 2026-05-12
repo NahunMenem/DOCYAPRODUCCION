@@ -22,11 +22,14 @@ class RecetasScreen extends StatefulWidget {
 class _RecetasScreenState extends State<RecetasScreen>
     with SingleTickerProviderStateMixin {
   static const Color kPrimary = Color(0xFF14B8A6);
+  static const Duration _argentinaOffset = Duration(hours: -3);
 
   bool loading = true;
   String? errorMessage;
   List<dynamic> recetas = [];
   List<dynamic> certificados = [];
+  String _searchQuery = "";
+  final TextEditingController _searchController = TextEditingController();
   late TabController _tabController;
 
   @override
@@ -38,6 +41,7 @@ class _RecetasScreenState extends State<RecetasScreen>
 
   @override
   void dispose() {
+    _searchController.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -122,13 +126,22 @@ class _RecetasScreenState extends State<RecetasScreen>
       }
     }
 
-    archivos.sort((a, b) {
-      final fechaA = _readString(a, ["fecha", "created_at", "fecha_emision"]);
-      final fechaB = _readString(b, ["fecha", "created_at", "fecha_emision"]);
-      return fechaB.compareTo(fechaA);
-    });
+    archivos.sort((a, b) => _fechaDocumento(b).compareTo(_fechaDocumento(a)));
 
     return archivos;
+  }
+
+  DateTime _fechaDocumento(Map<String, dynamic> data) {
+    return _parseFechaArgentina(
+          _readString(data, [
+            "fecha",
+            "created_at",
+            "fecha_emision",
+            "emitido_en",
+            "updated_at",
+          ]),
+        ) ??
+        DateTime.fromMillisecondsSinceEpoch(0);
   }
 
   bool _esReceta(dynamic archivo) {
@@ -151,6 +164,34 @@ class _RecetasScreenState extends State<RecetasScreen>
     return tipo.contains("certificado");
   }
 
+  List<dynamic> _filtrarDocumentos(List<dynamic> source) {
+    final query = _searchQuery.trim().toLowerCase();
+    if (query.isEmpty) return source;
+
+    return source.where((archivoRaw) {
+      if (archivoRaw is! Map) return false;
+      final archivo = Map<String, dynamic>.from(
+        archivoRaw.map((key, value) => MapEntry(key.toString(), value)),
+      );
+      final haystack = [
+        _readString(archivo, ["tipo", "categoria", "document_type"]),
+        _readString(archivo, ["doctor", "medico", "profesional", "autor"]),
+        _readString(archivo, ["medicamento", "diagnostico", "motivo"]),
+        _readString(archivo, ["descripcion", "detalle", "indicacion"]),
+        _formatFechaArgentina(
+          _readString(archivo, [
+            "fecha",
+            "created_at",
+            "fecha_emision",
+            "emitido_en",
+            "updated_at",
+          ]),
+        ),
+      ].join(" ").toLowerCase();
+      return haystack.contains(query);
+    }).toList();
+  }
+
   String _readString(Map<String, dynamic> data, List<String> keys) {
     for (final key in keys) {
       final value = data[key];
@@ -159,6 +200,83 @@ class _RecetasScreenState extends State<RecetasScreen>
       }
     }
     return "";
+  }
+
+  DateTime? _parseFechaArgentina(dynamic raw) {
+    if (raw == null) return null;
+    final text = raw.toString().trim();
+    if (text.isEmpty) return null;
+
+    final numeric = int.tryParse(text);
+    if (numeric != null) {
+      final millis = text.length <= 10 ? numeric * 1000 : numeric;
+      return _toArgentinaWallTime(
+        DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true),
+      );
+    }
+
+    final normalized = text.replaceFirst(' ', 'T');
+    final hasTimezone = RegExp(r'(Z|[+-]\d{2}:?\d{2})$').hasMatch(normalized);
+    if (hasTimezone) {
+      final parsed = DateTime.tryParse(normalized);
+      if (parsed == null) return null;
+      return _toArgentinaWallTime(parsed);
+    }
+
+    final iso = RegExp(
+      r'^(\d{4})-(\d{1,2})-(\d{1,2})(?:[T ](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?',
+    ).firstMatch(text);
+    if (iso != null) {
+      return DateTime(
+        int.parse(iso.group(1)!),
+        int.parse(iso.group(2)!),
+        int.parse(iso.group(3)!),
+        int.tryParse(iso.group(4) ?? '0') ?? 0,
+        int.tryParse(iso.group(5) ?? '0') ?? 0,
+        int.tryParse(iso.group(6) ?? '0') ?? 0,
+      );
+    }
+
+    final ar = RegExp(
+      r'^(\d{1,2})/(\d{1,2})/(\d{4})(?:\s+(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?)?',
+    ).firstMatch(text);
+    if (ar != null) {
+      return DateTime(
+        int.parse(ar.group(3)!),
+        int.parse(ar.group(2)!),
+        int.parse(ar.group(1)!),
+        int.tryParse(ar.group(4) ?? '0') ?? 0,
+        int.tryParse(ar.group(5) ?? '0') ?? 0,
+        int.tryParse(ar.group(6) ?? '0') ?? 0,
+      );
+    }
+
+    final parsed = DateTime.tryParse(normalized);
+    return parsed == null ? null : _toArgentinaWallTime(parsed);
+  }
+
+  DateTime _toArgentinaWallTime(DateTime value) {
+    final argentina = value.toUtc().add(_argentinaOffset);
+    return DateTime(
+      argentina.year,
+      argentina.month,
+      argentina.day,
+      argentina.hour,
+      argentina.minute,
+      argentina.second,
+    );
+  }
+
+  String _formatFechaArgentina(dynamic raw) {
+    final original = raw?.toString().trim() ?? "";
+    final parsed = _parseFechaArgentina(original);
+    if (parsed == null) return original;
+
+    String two(int n) => n.toString().padLeft(2, '0');
+    final fecha = "${two(parsed.day)}/${two(parsed.month)}/${parsed.year}";
+    final tieneHora = RegExp(r'\d{1,2}:\d{2}').hasMatch(original);
+    if (!tieneHora) return fecha;
+    return "$fecha ${two(parsed.hour)}:${two(parsed.minute)}";
   }
 
   Future<void> _abrirDocumento(String? url) async {
@@ -209,10 +327,40 @@ class _RecetasScreenState extends State<RecetasScreen>
     }
   }
 
+  Future<void> _compartirDocumentoWhatsApp(String? url, bool esReceta) async {
+    if (url == null || url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Documento no disponible")),
+      );
+      return;
+    }
+
+    final docUrl = _resolverUriDocumento(url).toString();
+    final tipo = esReceta ? "receta" : "certificado";
+    final mensaje = Uri.encodeComponent(
+      "Hola, te comparto mi $tipo de DocYa:\n$docUrl",
+    );
+    final whatsapp = Uri.parse("https://wa.me/?text=$mensaje");
+
+    try {
+      final launched = await launchUrl(
+        whatsapp,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) throw Exception("No se pudo abrir WhatsApp");
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al compartir por WhatsApp: $e")),
+      );
+    }
+  }
+
   Uri _resolverUriDocumento(String rawUrl) {
     final uri = Uri.parse(rawUrl);
     final path = uri.path;
-    final recetaMatch = RegExp(r'^/recetario/recetas/(\d+)/html$').firstMatch(path);
+    final recetaMatch =
+        RegExp(r'^/recetario/recetas/(\d+)/html$').firstMatch(path);
     if (recetaMatch != null) {
       final recetaId = recetaMatch.group(1)!;
       return Uri.parse(
@@ -333,11 +481,17 @@ class _RecetasScreenState extends State<RecetasScreen>
             : "Documento clínico";
     final doctor =
         _readString(archivo, ["doctor", "medico", "profesional", "autor"]);
-    final fecha =
-        _readString(archivo, ["fecha", "created_at", "fecha_emision"]);
+    final fechaRaw = _readString(archivo, [
+      "fecha",
+      "created_at",
+      "fecha_emision",
+      "emitido_en",
+      "updated_at",
+    ]);
+    final fecha = _formatFechaArgentina(fechaRaw);
     final url = _readString(archivo, ["url", "archivo_url", "documento_url"]);
     final esReceta = _esReceta(archivo);
-    final accent = esReceta ? kPrimary : const Color(0xFF0EA5E9);
+    final accent = esReceta ? kPrimary : const Color(0xFF7C3AED);
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
@@ -429,53 +583,97 @@ class _RecetasScreenState extends State<RecetasScreen>
               ],
             ),
             const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    accent.withOpacity(0.92),
-                    accent.withOpacity(0.74),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: [
-                  BoxShadow(
-                    color: accent.withOpacity(0.18),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(18),
-                  onTap: () => _abrirDocumento(url),
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.open_in_new_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        SizedBox(width: 10),
-                        Text(
-                          "Abrir documento",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14.5,
-                          ),
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          accent.withOpacity(0.92),
+                          accent.withOpacity(0.74),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: accent.withOpacity(0.18),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => _abrirDocumento(url),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 14),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.open_in_new_rounded,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              SizedBox(width: 10),
+                              Text(
+                                "Abrir",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14.5,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () => _compartirDocumentoWhatsApp(url, esReceta),
+                    child: Container(
+                      height: 50,
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF25D366)
+                            .withOpacity(isDark ? 0.16 : 0.10),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: const Color(0xFF25D366).withOpacity(0.26),
+                        ),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.chat_rounded,
+                            color: Color(0xFF16A34A),
+                            size: 20,
+                          ),
+                          SizedBox(width: 8),
+                          Text(
+                            "WhatsApp",
+                            style: TextStyle(
+                              color: Color(0xFF166534),
+                              fontWeight: FontWeight.w900,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -518,6 +716,7 @@ class _RecetasScreenState extends State<RecetasScreen>
   }
 
   Widget _buildListView(List<dynamic> archivos, bool isDark) {
+    final filtered = _filtrarDocumentos(archivos);
     if (archivos.isEmpty) {
       return _emptyState(
         context,
@@ -526,11 +725,93 @@ class _RecetasScreenState extends State<RecetasScreen>
       );
     }
 
+    if (filtered.isEmpty) {
+      return _emptyState(
+        context,
+        "No encontramos documentos",
+        "Proba buscar por profesional, medicamento, diagnostico o fecha.",
+      );
+    }
+
     return ListView.builder(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
-      itemCount: archivos.length,
+      itemCount: filtered.length + 1,
       physics: const BouncingScrollPhysics(),
-      itemBuilder: (context, index) => _documentCard(archivos[index], isDark),
+      itemBuilder: (context, index) {
+        if (index == 0) return _safeInfoCard(isDark);
+        return _documentCard(filtered[index - 1], isDark);
+      },
+    );
+  }
+
+  Widget _safeInfoCard(bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(22),
+          gradient: LinearGradient(
+            colors: isDark
+                ? [
+                    const Color(0xFF083C3A).withOpacity(0.70),
+                    Colors.white.withOpacity(0.05),
+                  ]
+                : [
+                    const Color(0xFFE8FAF7),
+                    const Color(0xFFF8FCFC),
+                  ],
+          ),
+          border: Border.all(
+            color: isDark
+                ? Colors.white.withOpacity(0.10)
+                : kPrimary.withOpacity(0.12),
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: kPrimary.withOpacity(isDark ? 0.18 : 0.12),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: const Icon(
+                Icons.verified_user_rounded,
+                color: kPrimary,
+                size: 30,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "Tus documentos estan seguros",
+                    style: TextStyle(
+                      color: isDark ? Colors.white : const Color(0xFF0F172A),
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    "Recetas y certificados ordenados por fecha Argentina.",
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : const Color(0xFF475569),
+                      fontSize: 13,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -661,7 +942,7 @@ class _RecetasScreenState extends State<RecetasScreen>
                                   ),
                                   const SizedBox(height: 10),
                                   Text(
-                                    "Recetas y certificados",
+                                    "Mis documentos",
                                     style: TextStyle(
                                       fontSize: 27,
                                       fontWeight: FontWeight.w800,
@@ -700,6 +981,70 @@ class _RecetasScreenState extends State<RecetasScreen>
                   ),
                 ),
                 const SizedBox(height: 18),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
+                    height: 56,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.white.withOpacity(0.07)
+                          : Colors.white.withOpacity(0.98),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withOpacity(0.12)
+                            : const Color(0xFFE2E8F0),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.search_rounded,
+                          color:
+                              isDark ? Colors.white54 : const Color(0xFF64748B),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            onChanged: (value) =>
+                                setState(() => _searchQuery = value),
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF0F172A),
+                              fontWeight: FontWeight.w700,
+                            ),
+                            decoration: InputDecoration(
+                              hintText:
+                                  "Buscar receta, certificado o medico...",
+                              hintStyle: TextStyle(
+                                color: isDark
+                                    ? Colors.white38
+                                    : const Color(0xFF94A3B8),
+                                fontWeight: FontWeight.w600,
+                              ),
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                        if (_searchQuery.isNotEmpty)
+                          IconButton(
+                            onPressed: () {
+                              _searchController.clear();
+                              setState(() => _searchQuery = "");
+                            },
+                            icon: const Icon(Icons.close_rounded),
+                            color: isDark
+                                ? Colors.white54
+                                : const Color(0xFF64748B),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Container(

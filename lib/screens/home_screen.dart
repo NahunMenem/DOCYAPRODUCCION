@@ -2446,6 +2446,7 @@ class _HomeScreenState extends State<HomeScreen>
           ChatIAScreen(
             direccion: tieneDireccion ? direccionCtrl.text : null,
             ubicacion: selectedLocation,
+            onBackToHome: () => setState(() => _selectedIndex = 0),
           ),
           PerfilScreen(
             userId: _userId ?? "",
