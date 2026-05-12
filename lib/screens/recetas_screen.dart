@@ -888,6 +888,24 @@ class _RecetasScreenState extends State<RecetasScreen>
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        IconButton(
+                          tooltip: "Volver",
+                          onPressed: () => Navigator.of(context).maybePop(),
+                          style: IconButton.styleFrom(
+                            backgroundColor: isDark
+                                ? Colors.white.withOpacity(0.08)
+                                : const Color(0xFFEFFDFB),
+                            foregroundColor: isDark ? Colors.white : kPrimary,
+                            side: BorderSide(
+                              color: isDark
+                                  ? Colors.white.withOpacity(0.12)
+                                  : kPrimary.withOpacity(0.18),
+                            ),
+                            minimumSize: const Size(42, 42),
+                          ),
+                          icon: const Icon(Icons.arrow_back_rounded),
+                        ),
+                        const SizedBox(height: 14),
                         Row(
                           children: [
                             Container(
