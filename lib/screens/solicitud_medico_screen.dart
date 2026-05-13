@@ -15,10 +15,12 @@ import '../globals.dart';
 import '../services/auth_service.dart';
 import '../services/mercado_pago_native_service.dart';
 import '../services/payment_methods_service.dart';
+import '../widgets/confirmar_direccion_modal.dart';
 import '../widgets/docya_snackbar.dart';
 import 'buscando_medico_screen.dart';
 import 'complete_profile_screen.dart';
 import 'payment_checkout_browser_screen.dart';
+import 'registrar_direccion_screen.dart';
 
 class SolicitudMedicoScreen extends StatefulWidget {
   final String direccion;
@@ -77,13 +79,14 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
   String pagoPreautorizadoGlobal = "";
   String? _paymentId;
   bool pagoConfirmadoUnaVez = false;
+  late String _direccionActual;
+  late LatLng _ubicacionActual;
 
   // Tarifa cargada desde la API
   int? _precioActual;
   String _descripcionPrecio = "";
   bool _cargandoTarifa = true;
   int? _selectedServiceIndex;
-  String? _autoMotivoServicio;
 
   static const List<_MedicalService> _services = [
     _MedicalService(
@@ -129,6 +132,8 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _direccionActual = widget.direccion;
+    _ubicacionActual = widget.ubicacion;
     if (widget.motivoInicial != null && widget.motivoInicial!.isNotEmpty) {
       motivoCtrl.text = widget.motivoInicial!;
     }
@@ -265,6 +270,47 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
     }
   }
 
+  Future<bool> _confirmarDireccionAntesDeContinuar() async {
+    while (mounted) {
+      final accion = await mostrarConfirmarDireccionModal(
+        context: context,
+        servicio: 'médico',
+        direccion: _direccionActual,
+      );
+
+      if (accion == DireccionConfirmadaAccion.confirmar) {
+        return true;
+      }
+      if (accion != DireccionConfirmadaAccion.modificar) {
+        return false;
+      }
+
+      final datos = await Navigator.push<Map<String, dynamic>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RegistrarDireccionScreen(
+            userId: pacienteUuidGlobal,
+            forceRequired: true,
+          ),
+        ),
+      );
+
+      if (!mounted) return false;
+      if (datos == null) continue;
+
+      final nuevaDireccion = (datos['direccion'] ?? '').toString().trim();
+      final lat = datos['lat'];
+      final lng = datos['lng'];
+      if (nuevaDireccion.isNotEmpty && lat is num && lng is num) {
+        setState(() {
+          _direccionActual = nuevaDireccion;
+          _ubicacionActual = LatLng(lat.toDouble(), lng.toDouble());
+        });
+      }
+    }
+    return false;
+  }
+
   // ============================================================
   // ============================================================
   // 💳 1. CREAR CONSULTA PREVIA + PREAUTORIZAR PAGO
@@ -281,7 +327,7 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
       _toast("Debes aceptar la declaracion jurada");
       return;
     }
-
+    if (!await _confirmarDireccionAntesDeContinuar()) return;
     setState(() => pagando = true);
 
     try {
@@ -292,9 +338,9 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
         body: jsonEncode({
           "paciente_uuid": pacienteUuidGlobal,
           "motivo": motivoCtrl.text.trim(),
-          "direccion": widget.direccion,
-          "lat": widget.ubicacion.latitude,
-          "lng": widget.ubicacion.longitude,
+          "direccion": _direccionActual,
+          "lat": _ubicacionActual.latitude,
+          "lng": _ubicacionActual.longitude,
           "tipo": "medico"
         }),
       );
@@ -497,9 +543,9 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
       "consulta_id": consultaPreviaId,
       "paciente_uuid": pacienteUuidGlobal,
       "motivo": motivoCtrl.text.trim(),
-      "direccion": widget.direccion,
-      "lat": widget.ubicacion.latitude,
-      "lng": widget.ubicacion.longitude,
+      "direccion": _direccionActual,
+      "lat": _ubicacionActual.latitude,
+      "lng": _ubicacionActual.longitude,
       "metodo_pago": metodoPago == "saldo_mp" ? "saldo_mp" : "tarjeta",
       "payment_id": _paymentId ?? "",
       "tipo": "medico",
@@ -536,8 +582,8 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
         context,
         MaterialPageRoute(
           builder: (_) => BuscandoMedicoScreen(
-            direccion: widget.direccion,
-            ubicacion: widget.ubicacion,
+            direccion: _direccionActual,
+            ubicacion: _ubicacionActual,
             motivo: motivoCtrl.text.trim(),
             consultaId: data["consulta_id"],
             pacienteUuid: pacienteUuidGlobal,
@@ -555,12 +601,13 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
   // EFECTIVO — FLUJO ORIGINAL
   // ============================================================
   Future<void> _solicitarEfectivo() async {
+    if (!await _confirmarDireccionAntesDeContinuar()) return;
     final body = jsonEncode({
       "paciente_uuid": pacienteUuidGlobal,
       "motivo": motivoCtrl.text.trim(),
-      "direccion": widget.direccion,
-      "lat": widget.ubicacion.latitude,
-      "lng": widget.ubicacion.longitude,
+      "direccion": _direccionActual,
+      "lat": _ubicacionActual.latitude,
+      "lng": _ubicacionActual.longitude,
       "metodo_pago": "efectivo",
       "payment_id": "",
       "tipo": "medico",
@@ -580,8 +627,8 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
         context,
         MaterialPageRoute(
           builder: (_) => BuscandoMedicoScreen(
-            direccion: widget.direccion,
-            ubicacion: widget.ubicacion,
+            direccion: _direccionActual,
+            ubicacion: _ubicacionActual,
             motivo: motivoCtrl.text.trim(),
             consultaId: data["consulta_id"],
             pacienteUuid: pacienteUuidGlobal,
@@ -627,14 +674,8 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
       isDark ? Colors.white70 : const Color(0xFF536078);
 
   void _selectService(int index) {
-    final service = _services[index];
     setState(() {
       _selectedServiceIndex = index;
-      if (motivoCtrl.text.trim().isEmpty ||
-          motivoCtrl.text.trim() == _autoMotivoServicio) {
-        motivoCtrl.text = service.title;
-        _autoMotivoServicio = service.title;
-      }
     });
   }
 
@@ -1647,6 +1688,7 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
       _toast('Completá el motivo y aceptá la declaración jurada.');
       return;
     }
+    if (!await _confirmarDireccionAntesDeContinuar()) return;
     setState(() => pagando = true);
     try {
       final previa = await http.post(
@@ -1655,9 +1697,9 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
         body: jsonEncode({
           'paciente_uuid': pacienteUuidGlobal,
           'motivo': motivoCtrl.text.trim(),
-          'direccion': widget.direccion,
-          'lat': widget.ubicacion.latitude,
-          'lng': widget.ubicacion.longitude,
+          'direccion': _direccionActual,
+          'lat': _ubicacionActual.latitude,
+          'lng': _ubicacionActual.longitude,
           'tipo': 'medico',
         }),
       );
