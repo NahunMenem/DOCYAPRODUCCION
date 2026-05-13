@@ -46,6 +46,7 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
   String estadoConsulta = "pendiente";
   static const int _searchWindowSeconds = 5 * 60;
   int _remainingSearchSeconds = _searchWindowSeconds;
+  late final DateTime _searchStartedAt;
 
   final String apiBase = "https://docya-railway-production.up.railway.app";
 
@@ -65,6 +66,7 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
   @override
   void initState() {
     super.initState();
+    _searchStartedAt = DateTime.now();
 
     _animController =
         AnimationController(vsync: this, duration: const Duration(seconds: 2))
@@ -200,12 +202,30 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
       final data = jsonDecode(response.body);
       final nuevoEstado = (data["estado"] ?? "").toString();
       final mpStatus = (data["mp_status"] ?? "").toString();
+      final segundosRestantes = int.tryParse(
+        (data["segundos_restantes"] ?? "").toString(),
+      );
 
       if (!mounted) return;
 
-      setState(() => estadoConsulta = nuevoEstado);
+      setState(() {
+        estadoConsulta = nuevoEstado;
+        if (segundosRestantes != null && segundosRestantes >= 0) {
+          _remainingSearchSeconds =
+              segundosRestantes.clamp(0, _searchWindowSeconds);
+        }
+      });
 
       if (nuevoEstado == "cancelada") {
+        final elapsedSeconds =
+            DateTime.now().difference(_searchStartedAt).inSeconds;
+        final puedeCerrarBusqueda = elapsedSeconds >= _searchWindowSeconds ||
+            _remainingSearchSeconds <= 0;
+
+        if (!puedeCerrarBusqueda) {
+          setState(() => estadoConsulta = "pendiente");
+          return;
+        }
         _stopPolling();
 
         final message = mpStatus == "cancelled" || mpStatus == "refunded"
@@ -341,14 +361,14 @@ class _BuscandoMedicoScreenState extends State<BuscandoMedicoScreen>
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(25),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+                    filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
                     child: Container(
                       padding: const EdgeInsets.all(22),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.10),
+                        color: const Color(0xFF0A1E28).withOpacity(0.82),
                         borderRadius: BorderRadius.circular(25),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.25),
+                          color: const Color(0xFF14B8A6).withOpacity(0.30),
                         ),
                       ),
                       child: Column(
