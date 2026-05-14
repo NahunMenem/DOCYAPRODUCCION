@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -37,6 +39,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _aceptaCondiciones = false;
   bool _loading = false;
   bool _loadingGoogle = false;
+  bool _loadingApple = false;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
   String? _error;
@@ -174,6 +177,73 @@ class _RegisterScreenState extends State<RegisterScreen> {
       context,
       title: "Bienvenido",
       message: "Ingresaste con Google correctamente.",
+      type: SnackType.success,
+    );
+  }
+
+  //--------------------------------------------------------------------
+  // APPLE REGISTER / LOGIN
+  //--------------------------------------------------------------------
+  Future<void> _submitApple() async {
+    setState(() => _loadingApple = true);
+    final loginData = await _auth.loginWithApple();
+    setState(() => _loadingApple = false);
+
+    if (!mounted || loginData == null) return;
+
+    if (loginData["ok"] != true) {
+      DocYaSnackbar.show(
+        context,
+        title: "Apple no disponible",
+        message: loginData["detail"] ?? "No se pudo continuar con Apple.",
+        type: SnackType.error,
+      );
+      return;
+    }
+
+    final token = loginData["access_token"] ?? "";
+    final id = loginData["user_id"]?.toString() ?? "";
+    final nombre = loginData["full_name"] ?? "Usuario";
+    final email = loginData["email"]?.toString() ?? "";
+    final perfilCompleto = loginData["perfil_completo"] == true;
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("auth_token", token);
+    await prefs.setString("nombreUsuario", nombre);
+    await prefs.setString("userId", id);
+    await prefs.setBool("perfilCompleto", perfilCompleto);
+    pacienteUuidGlobal = id;
+    pacienteEmailGlobal = email;
+
+    try {
+      final fcmToken = await FirebaseMessaging.instance.getToken();
+      if (fcmToken != null && fcmToken.isNotEmpty) {
+        await http.post(
+          Uri.parse(
+              "https://docya-railway-production.up.railway.app/users/$id/fcm_token"),
+          headers: {"Content-Type": "application/json"},
+          body: jsonEncode({"fcm_token": fcmToken}),
+        );
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
+    if (!perfilCompleto) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const CompleteProfileScreen(forceProfile: true),
+        ),
+      );
+      return;
+    }
+
+    Navigator.pushReplacementNamed(context, "/home");
+    DocYaSnackbar.show(
+      context,
+      title: "Bienvenido",
+      message: "Ingresaste con Apple correctamente.",
       type: SnackType.success,
     );
   }
@@ -526,7 +596,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               const SizedBox(height: 14),
 
                               Text(
-                                "Registrate con Google",
+                                "Registro rápido",
                                 style: TextStyle(
                                   color: isDark
                                       ? Colors.white
@@ -537,7 +607,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                "Sin contraseña, en un solo tap",
+                                "Sin contraseña, en un tap",
                                 style: TextStyle(
                                   color: isDark
                                       ? Colors.white38
@@ -622,6 +692,65 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   ),
                                 ),
                               ),
+                              if (Platform.isIOS) ...[
+                                const SizedBox(height: 10),
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 52,
+                                  child: OutlinedButton(
+                                    onPressed: (_loading || _loadingGoogle || _loadingApple)
+                                        ? null
+                                        : _submitApple,
+                                    style: OutlinedButton.styleFrom(
+                                      side: BorderSide(
+                                        color: isDark
+                                            ? Colors.white.withOpacity(0.15)
+                                            : Colors.black.withOpacity(0.12),
+                                        width: 1,
+                                      ),
+                                      backgroundColor: isDark
+                                          ? Colors.white.withOpacity(0.06)
+                                          : Colors.white,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                    ),
+                                    child: _loadingApple
+                                        ? const SizedBox(
+                                            width: 22,
+                                            height: 22,
+                                            child: CircularProgressIndicator(
+                                              color: Color(0xFF14B8A6),
+                                              strokeWidth: 2.4,
+                                            ),
+                                          )
+                                        : Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              FaIcon(
+                                                FontAwesomeIcons.apple,
+                                                size: 22,
+                                                color: isDark
+                                                    ? Colors.white
+                                                    : const Color(0xFF1A1A2E),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              Text(
+                                                "Continuar con Apple",
+                                                style: TextStyle(
+                                                  color: isDark
+                                                      ? Colors.white
+                                                      : const Color(0xFF1A1A2E),
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 15,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -1080,7 +1209,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                   height: 52,
                                   child: ElevatedButton(
                                     onPressed:
-                                        (_loading || _loadingGoogle) ? null : _submit,
+                                        (_loading || _loadingGoogle || _loadingApple) ? null : _submit,
                                     style: ElevatedButton.styleFrom(
                                       elevation: 0,
                                       backgroundColor: Colors.transparent,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 class AuthService {
   // URL del backend en Railway
@@ -177,6 +178,66 @@ class AuthService {
     } catch (e) {
       print("❌ Error loginWithGoogle: $e");
       return {"ok": false, "detail": "Error de conexión"};
+    }
+  }
+
+  // ---------------------------------------------------------------
+  // LOGIN CON APPLE (solo iOS)
+  // ---------------------------------------------------------------
+  Future<Map<String, dynamic>?> loginWithApple() async {
+    try {
+      final credential = await SignInWithApple.getAppleIDCredential(
+        scopes: [
+          AppleIDAuthorizationScopes.email,
+          AppleIDAuthorizationScopes.fullName,
+        ],
+      );
+
+      final identityToken = credential.identityToken;
+      if (identityToken == null || identityToken.isEmpty) {
+        return {'ok': false, 'detail': 'Apple no devolvió un token válido.'};
+      }
+
+      final nameParts = [credential.givenName, credential.familyName]
+          .where((s) => s != null && s!.isNotEmpty)
+          .map((s) => s!)
+          .toList();
+      final fullName = nameParts.join(' ');
+
+      final res = await http
+          .post(
+            Uri.parse('$BASE_URL/auth/apple'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'identity_token': identityToken,
+              if (fullName.isNotEmpty) 'full_name': fullName,
+              if (credential.email != null) 'email': credential.email,
+            }),
+          )
+          .timeout(_requestTimeout);
+
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      if (res.statusCode == 200) {
+        return {
+          'ok': true,
+          'access_token': data['access_token'],
+          'user_id': data['user']?['id']?.toString(),
+          'full_name': data['user']?['full_name'] ??
+              (fullName.isNotEmpty ? fullName : 'Usuario'),
+          'email': data['user']?['email'] ?? credential.email,
+          'perfil_completo': data['perfil_completo'] == true ||
+              data['user']?['perfil_completo'] == true,
+        };
+      }
+      return {
+        'ok': false,
+        'detail': data['detail'] ?? 'No se pudo iniciar sesión con Apple.',
+      };
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) return null;
+      return {'ok': false, 'detail': 'Error de Apple: ${e.message}'};
+    } catch (e) {
+      return {'ok': false, 'detail': 'Error de conexión con Apple: $e'};
     }
   }
 

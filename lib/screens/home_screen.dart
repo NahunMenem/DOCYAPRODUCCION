@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:permission_handler/permission_handler.dart' as ph;
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -46,6 +47,8 @@ class _HomeScreenState extends State<HomeScreen>
   String? _userId;
   bool cargando = true;
   bool tieneDireccion = false;
+  bool _notifGranted = true;
+  bool _notifChecked = false;
   bool _addressGateShown = false;
   bool _modalComoFuncionaMostrado = false;
   LatLng? selectedLocation;
@@ -133,6 +136,9 @@ class _HomeScreenState extends State<HomeScreen>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _cargarSesion();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkNotificationPermission();
+    });
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 120),
@@ -1171,6 +1177,144 @@ class _HomeScreenState extends State<HomeScreen>
     );
   }
 
+  // ---------------------------------------------------------------
+  // 🔔 NOTIFICACIONES
+  // ---------------------------------------------------------------
+  bool _isNotifAccepted(ph.PermissionStatus s) =>
+      s.isGranted || s.isLimited || s.isProvisional;
+
+  Future<void> _checkNotificationPermission() async {
+    var status = await ph.Permission.notification.status;
+    if (!_isNotifAccepted(status) && !status.isPermanentlyDenied) {
+      status = await ph.Permission.notification.request();
+    }
+    if (!mounted) return;
+    setState(() {
+      _notifGranted = _isNotifAccepted(status);
+      _notifChecked = true;
+    });
+  }
+
+  Widget _buildNotifBanner() {
+    if (!_notifChecked || _notifGranted) return const SizedBox.shrink();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      decoration: BoxDecoration(
+        color: isDark
+            ? const Color(0xFF2D1F00).withOpacity(0.95)
+            : const Color(0xFFFFFBEB).withOpacity(0.97),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: const Color(0xFFFBBF24).withOpacity(isDark ? 0.3 : 0.5),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFBBF24).withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFBBF24).withOpacity(0.18),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.notifications_off_rounded,
+                color: Color(0xFFD97706),
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Activá las notificaciones',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Para recibir alertas de tus consultas y recordatorios de medicación necesitás tener las notificaciones activas.',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: isDark ? Colors.white60 : Colors.black54,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                GestureDetector(
+                  onTap: () async {
+                    await _checkNotificationPermission();
+                    if (!mounted) return;
+                    if (_notifGranted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Notificaciones activadas'),
+                          backgroundColor: Color(0xFF14B8A6),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 7),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF14B8A6),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      'Activar',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 5),
+                GestureDetector(
+                  onTap: () => ph.openAppSettings(),
+                  child: const Text(
+                    'Ajustes',
+                    style: TextStyle(
+                      color: Color(0xFF14B8A6),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _vistaHomePrincipal() {
     return _fondoGradiente(
       child: SafeArea(
@@ -1179,6 +1323,7 @@ class _HomeScreenState extends State<HomeScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              _buildNotifBanner(),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

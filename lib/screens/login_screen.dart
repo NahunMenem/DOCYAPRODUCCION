@@ -1,8 +1,10 @@
 // lib/screens/login_screen.dart
 
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -444,6 +446,41 @@ class _LoginScreenState extends State<LoginScreen>
         context,
         title: "Error",
         message: "No se pudo completar el ingreso con Google.",
+        type: SnackType.error,
+      );
+    }
+  }
+
+  Future<void> _submitApple() async {
+    setState(() => _loading = true);
+    final loginData = await _auth.loginWithApple();
+    setState(() => _loading = false);
+
+    if (!mounted || loginData == null) return;
+
+    if (loginData["ok"] != true) {
+      DocYaSnackbar.show(
+        context,
+        title: "Apple no disponible",
+        message: loginData["detail"] ?? "No se pudo iniciar sesión con Apple.",
+        type: SnackType.error,
+      );
+      return;
+    }
+
+    try {
+      await _postLoginSuccess(loginData);
+      DocYaSnackbar.show(
+        context,
+        title: "Bienvenido",
+        message: "Ingresaste con Apple correctamente.",
+        type: SnackType.success,
+      );
+    } catch (_) {
+      DocYaSnackbar.show(
+        context,
+        title: "Error",
+        message: "No se pudo completar el ingreso con Apple.",
         type: SnackType.error,
       );
     }
@@ -969,6 +1006,52 @@ class _LoginScreenState extends State<LoginScreen>
                     ),
                   ),
                 ),
+
+                if (Platform.isIOS) ...[
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton(
+                      onPressed: _loading ? null : _submitApple,
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(
+                          color: isDark
+                              ? Colors.white.withOpacity(0.15)
+                              : Colors.black.withOpacity(0.12),
+                          width: 1,
+                        ),
+                        backgroundColor: isDark
+                            ? Colors.white.withOpacity(0.04)
+                            : Colors.white.withOpacity(0.6),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          FaIcon(
+                            FontAwesomeIcons.apple,
+                            size: 22,
+                            color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            "Continuar con Apple",
+                            style: TextStyle(
+                              color: isDark
+                                  ? Colors.white
+                                  : const Color(0xFF1A1A2E),
+                              fontWeight: FontWeight.w700,
+                              fontSize: 14.5,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 18),
 
