@@ -452,7 +452,21 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
         );
 
         if (authorization["authorized"] != true) {
-          _toast("No se pudo autorizar la tarjeta");
+          // Cancelar la preautorización en el backend para liberar fondos
+          if (consultaPreviaId != null) {
+            http
+                .post(
+                  Uri.parse('$API_URL/consultas/$consultaPreviaId/cancelar_busqueda'),
+                  headers: {"Content-Type": "application/json"},
+                  body: jsonEncode({"paciente_uuid": pacienteUuidGlobal}),
+                )
+                .catchError((_) {});
+          }
+          final mpStatus = authorization["status"]?.toString() ?? "";
+          final msg = mpStatus == "in_process"
+              ? "Tu banco está procesando el pago. Intentá con otra tarjeta o pagá con dinero en cuenta MP o en efectivo."
+              : "No se pudo autorizar la tarjeta. Intentá con otra tarjeta o pagá con dinero en cuenta MP o en efectivo.";
+          _toast(msg);
           setState(() => pagando = false);
           return;
         }
@@ -570,7 +584,8 @@ class _SolicitudMedicoScreenState extends State<SolicitudMedicoScreen>
       if (estado == "cancelada" ||
           estado == "pendiente_de_refund" ||
           estado == "sin_profesionales" ||
-          estado == "sin_medicos") {
+          estado == "sin_medicos" ||
+          estado == "pago_no_autorizado") {
         _toast(
           (data["mensaje"] ?? "No encontramos profesionales disponibles.")
               .toString(),
